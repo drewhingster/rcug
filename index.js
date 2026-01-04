@@ -1,831 +1,1261 @@
-export default {
-  async fetch(request, env, ctx) {
-    return new Response(HTML_CONTENT, {
-      headers: {
-        'content-type': 'text/html;charset=UTF-8',
-        'access-control-allow-origin': '*',
-        'cache-control': 'public, max-age=300'
-      },
-    });
-  },
-};
-
-const HTML_CONTENT = `<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RCUG Member Progress Dashboard</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: linear-gradient(135deg, #1a1a2e, #16213e); min-height: 100vh; color: #fff; padding: 20px; }
-        .container { max-width: 1400px; margin: 0 auto; }
-        header { text-align: center; padding: 20px 0; margin-bottom: 20px; }
-        h1 { font-size: 2.2rem; background: linear-gradient(90deg, #e91e63, #9c27b0); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 8px; }
-        .subtitle { color: #bdc3c7; font-size: 1rem; }
-        .loading { text-align: center; padding: 50px; color: #f1c40f; font-size: 1.2rem; }
-        .error { text-align: center; padding: 50px; color: #e74c3c; font-size: 1rem; background: rgba(231,76,60,0.1); border-radius: 10px; margin: 20px; }
-        .error a { color: #3498db; }
-        .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-        .tab { padding: 12px 24px; border-radius: 10px; cursor: pointer; font-weight: 600; transition: all 0.3s; }
-        .tab.members { background: rgba(46, 204, 113, 0.2); color: #2ecc71; }
-        .tab.members.active, .tab.members:hover { background: #2ecc71; color: #fff; }
-        .tab.guests { background: rgba(241, 196, 15, 0.2); color: #f1c40f; }
-        .tab.guests.active, .tab.guests:hover { background: #f1c40f; color: #333; }
-        .controls { background: rgba(255,255,255,0.1); border-radius: 15px; padding: 20px; margin-bottom: 20px; display: flex; gap: 15px; flex-wrap: wrap; align-items: center; }
-        .search-input { flex: 1; min-width: 200px; padding: 12px 16px; border: none; border-radius: 10px; font-size: 1rem; background: rgba(255,255,255,0.9); color: #333; }
-        .filter-select { padding: 12px 16px; border: none; border-radius: 10px; font-size: 1rem; background: rgba(255,255,255,0.9); color: #333; cursor: pointer; }
-        .refresh-btn { padding: 12px 20px; border: none; border-radius: 10px; font-size: 1rem; background: #3498db; color: #fff; cursor: pointer; font-weight: 600; }
-        .refresh-btn:hover { background: #2980b9; }
-        .stats-bar { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
-        .stat-box { background: rgba(255,255,255,0.1); border-radius: 10px; padding: 15px 25px; text-align: center; }
-        .stat-value { font-size: 2rem; font-weight: 700; color: #f1c40f; }
-        .stat-label { font-size: 0.8rem; color: #bdc3c7; }
-        .member-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 20px; }
-        .member-card { background: rgba(255,255,255,0.08); border-radius: 15px; padding: 20px; transition: transform 0.3s, box-shadow 0.3s; cursor: pointer; border-left: 4px solid #2ecc71; }
-        .member-card:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0,0,0,0.3); }
-        .member-card.guest { border-left-color: #f1c40f; }
-        .member-card.good { border-left-color: #2ecc71; }
-        .member-card.notgood { border-left-color: #e74c3c; }
-        .member-card.eligible { border-left-color: #9b59b6; box-shadow: 0 0 15px rgba(155, 89, 182, 0.3); }
-        .member-card.nodata { background: rgba(231, 76, 60, 0.25); border: 2px solid #e74c3c; border-left: 4px solid #e74c3c; }
-        .member-card.terminated { background: rgba(127, 140, 141, 0.2); border-left-color: #7f8c8d; opacity: 0.8; }
-        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
-        .member-name { font-size: 1.2rem; font-weight: 600; }
-        .member-tag { font-size: 0.7rem; color: #bdc3c7; margin-top: 3px; }
-        .badge { padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; margin-left: 5px; vertical-align: middle; }
-        .badge-new { background: #9b59b6; color: #fff; }
-        .badge-board { background: #3498db; color: #fff; }
-        .badge-nodata { background: #e74c3c; color: #fff; }
-        .badge-terminated { background: #7f8c8d; color: #fff; }
-        .status-badge { padding: 4px 10px; border-radius: 15px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; }
-        .status-good { background: #27ae60; }
-        .status-notgood { background: #e74c3c; }
-        .status-needswork { background: #e67e22; }
-        .status-noattendance { background: #7f8c8d; }
-        .status-infosession { background: #1abc9c; }
-        .status-notug { background: #c0392b; }
-        .status-eligible { background: #9b59b6; }
-        .status-nodata { background: #c0392b; }
-        .status-terminated { background: #7f8c8d; }
-        .progress-row { display: flex; align-items: center; margin-bottom: 8px; font-size: 0.85rem; }
-        .progress-label { width: 100px; color: #bdc3c7; }
-        .progress-bar { flex: 1; height: 10px; background: rgba(255,255,255,0.15); border-radius: 5px; overflow: hidden; margin: 0 10px; }
-        .progress-fill { height: 100%; border-radius: 5px; transition: width 0.5s; }
-        .progress-fill.meetings { background: linear-gradient(90deg, #3498db, #2980b9); }
-        .progress-fill.projects { background: linear-gradient(90deg, #e74c3c, #c0392b); }
-        .progress-fill.good { background: linear-gradient(90deg, #27ae60, #1e8449); }
-        .progress-fill.board { background: linear-gradient(90deg, #9b59b6, #8e44ad); }
-        .progress-value { width: 110px; text-align: right; font-weight: 600; font-size: 0.8rem; }
-        .checklist { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); }
-        .check-item { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; margin-bottom: 5px; }
-        .check-done { color: #27ae60; }
-        .check-pending { color: #e74c3c; }
-        .board-indicator { margin-top: 10px; padding: 8px 12px; background: rgba(155, 89, 182, 0.15); border-radius: 8px; border-left: 3px solid #9b59b6; }
-        .board-indicator-text { font-size: 0.8rem; color: #9b59b6; }
-        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; padding: 20px; }
-        .modal-content { background: linear-gradient(135deg, #2c3e50, #1a1a2e); border-radius: 20px; padding: 30px; max-width: 800px; width: 100%; max-height: 90vh; overflow-y: auto; position: relative; }
-        .close-btn { position: absolute; top: 15px; right: 20px; font-size: 1.5rem; cursor: pointer; color: #bdc3c7; }
-        .close-btn:hover { color: #e74c3c; }
-        .modal-header { text-align: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .modal-name { font-size: 1.8rem; margin-bottom: 5px; }
-        .modal-email { color: #bdc3c7; font-size: 0.9rem; }
-        .modal-contact { color: #3498db; font-size: 0.9rem; margin-top: 3px; }
-        .detail-section { margin-bottom: 20px; }
-        .detail-title { font-size: 1rem; font-weight: 600; color: #f1c40f; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-        .detail-title svg { width: 18px; height: 18px; fill: #f1c40f; }
-        .detail-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
-        .detail-card { background: rgba(255,255,255,0.05); border-radius: 10px; padding: 15px; }
-        .detail-card.full-width { grid-column: 1 / -1; }
-        .detail-card h4 { font-size: 0.9rem; margin-bottom: 10px; color: #ecf0f1; }
-        .detail-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.85rem; }
-        .detail-row span:first-child { color: #bdc3c7; }
-        .detail-text { color: #ecf0f1; font-size: 0.9rem; line-height: 1.6; }
-        .info-chip { display: inline-block; background: rgba(52, 152, 219, 0.2); border: 1px solid #3498db; color: #3498db; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; margin-right: 6px; margin-bottom: 6px; }
-        .requirements-list { list-style: none; }
-        .requirements-list li { padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; font-size: 0.9rem; }
-        .requirements-list li:last-child { border-bottom: none; }
-        .req-met { color: #27ae60; }
-        .req-notmet { color: #e74c3c; }
-        .req-pending { color: #f1c40f; }
-        .missed-section { background: rgba(231, 76, 60, 0.1); border: 1px solid rgba(231, 76, 60, 0.3); border-radius: 10px; padding: 15px; margin-top: 20px; }
-        .missed-section h4 { color: #e74c3c; margin-bottom: 10px; }
-        .missed-list { list-style: none; }
-        .missed-list li { padding: 6px 0; font-size: 0.85rem; color: #bdc3c7; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .missed-list li:last-child { border-bottom: none; }
-        .missed-list li::before { content: '✗ '; color: #e74c3c; }
-        .attended-section { background: rgba(46, 204, 113, 0.1); border: 1px solid rgba(46, 204, 113, 0.3); border-radius: 10px; padding: 15px; margin-top: 20px; }
-        .attended-section h4 { color: #27ae60; margin-bottom: 10px; }
-        .attended-list { list-style: none; }
-        .attended-list li { padding: 6px 0; font-size: 0.85rem; color: #bdc3c7; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .attended-list li:last-child { border-bottom: none; }
-        .attended-list li::before { content: '✓ '; color: #27ae60; }
-        .no-results { text-align: center; padding: 50px; color: #bdc3c7; }
-        .last-updated { text-align: center; color: #7f8c8d; font-size: 0.8rem; margin-top: 20px; }
-        @media (max-width: 600px) { 
-            h1 { font-size: 1.6rem; } 
-            .member-grid { grid-template-columns: 1fr; } 
-            .detail-grid { grid-template-columns: 1fr; }
-            .modal-content { padding: 20px; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #ffffff;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #f39c12, #e74c3c);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+        header p {
+            color: #bdc3c7;
+            font-size: 1.1rem;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .control-group label {
+            font-size: 0.85rem;
+            color: #bdc3c7;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        select, input {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 1rem;
+            cursor: pointer;
+            min-width: 180px;
+        }
+        select:focus, input:focus {
+            outline: 2px solid #f39c12;
+        }
+        select option {
+            background: #1a1a2e;
+            color: #fff;
+        }
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            backdrop-filter: blur(5px);
+        }
+        .stat-card h3 {
+            font-size: 2rem;
+            color: #f39c12;
+        }
+        .stat-card p {
+            color: #bdc3c7;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        .section-title {
+            font-size: 1.5rem;
+            margin: 30px 0 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f39c12;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .export-btn {
+            background: linear-gradient(90deg, #27ae60, #2ecc71);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .export-btn:hover {
+            transform: scale(1.05);
+        }
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .member-card {
+            background: linear-gradient(145deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+            border-radius: 15px;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .member-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .member-card.good-standing {
+            border-left: 4px solid #27ae60;
+        }
+        .member-card.not-good-standing {
+            border-left: 4px solid #e74c3c;
+        }
+        .member-card.guest-card {
+            border-left: 4px solid #3498db;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+        .member-name {
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+        .member-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .badge {
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border-radius: 12px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        .badge-member {
+            background: #27ae60;
+        }
+        .badge-guest {
+            background: #3498db;
+        }
+        .badge-new {
+            background: linear-gradient(90deg, #9b59b6, #8e44ad);
+            animation: pulse 2s infinite;
+        }
+        .badge-board {
+            background: #f39c12;
+        }
+        .badge-terminated {
+            background: #7f8c8d;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .member-details {
+            font-size: 0.85rem;
+            color: #bdc3c7;
+            margin-bottom: 15px;
+        }
+        .member-details p {
+            margin: 3px 0;
+        }
+        .member-details .committee-tag {
+            display: inline-block;
+            background: rgba(243, 156, 18, 0.3);
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin: 2px 2px 2px 0;
+            font-size: 0.75rem;
+            color: #f39c12;
+        }
+        .progress-section {
+            margin-top: 15px;
+        }
+        .progress-item {
+            margin-bottom: 12px;
+        }
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+        }
+        .progress-bar {
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        .progress-fill.good {
+            background: linear-gradient(90deg, #27ae60, #2ecc71);
+        }
+        .progress-fill.warning {
+            background: linear-gradient(90deg, #f39c12, #e67e22);
+        }
+        .progress-fill.danger {
+            background: linear-gradient(90deg, #e74c3c, #c0392b);
+        }
+        .checklist {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+        }
+        .checklist-item.completed {
+            color: #27ae60;
+        }
+        .checklist-item.pending {
+            color: #e74c3c;
+        }
+        .checklist-icon {
+            font-size: 1rem;
+        }
+        .birthday-section, .anniversary-section {
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .celebration-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .celebration-card {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .celebration-icon {
+            font-size: 2rem;
+        }
+        .celebration-info h4 {
+            font-size: 1rem;
+            margin-bottom: 3px;
+        }
+        .celebration-info p {
+            font-size: 0.85rem;
+            color: #bdc3c7;
+        }
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+        .loading {
+            text-align: center;
+            padding: 60px;
+            font-size: 1.2rem;
+            color: #bdc3c7;
+        }
+        .loading::after {
+            content: '';
+            animation: dots 1.5s infinite;
+        }
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+        .error-message {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid #e74c3c;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .tab-btn.active {
+            background: linear-gradient(90deg, #f39c12, #e74c3c);
+        }
+        .tab-btn:hover:not(.active) {
+            background: rgba(255,255,255,0.2);
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .filter-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 15px 0;
+        }
+        .filter-pill {
+            padding: 5px 12px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.1);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .filter-pill:hover, .filter-pill.active {
+            background: #f39c12;
+        }
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .summary-table th, .summary-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .summary-table th {
+            background: rgba(243, 156, 18, 0.2);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+        }
+        .summary-table tr:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8rem;
+            }
+            .cards-grid {
+                grid-template-columns: 1fr;
+            }
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            select, input {
+                width: 100%;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>RCUG Member Progress Dashboard</h1>
-            <p class="subtitle">Rotary Year 2025-2026 • Live Data from Google Sheets</p>
+            <h1>🔄 RCUG Member Progress Dashboard</h1>
+            <p>Rotaract Club of University of Guyana | Rotary Year 2025-2026</p>
+            <p style="font-size: 0.9rem; margin-top: 10px;">Last Updated: <span id="lastUpdated">Loading...</span></p>
         </header>
-        <div id="loadingMessage" class="loading">Loading data from Google Sheets...</div>
-        <div id="errorMessage" class="error" style="display:none;"></div>
-        <div id="mainContent" style="display:none;">
-            <div class="tabs">
-                <div class="tab members active" onclick="setTab('members')">Registered Members</div>
-                <div class="tab guests" onclick="setTab('guests')">Guests & Prospective</div>
-            </div>
-            <div class="stats-bar" id="statsBar"></div>
-            <div class="controls">
-                <input type="text" id="searchInput" class="search-input" placeholder="Search by name...">
-                <select id="periodFilter" class="filter-select">
-                    <option value="q1">Q1 (Jul-Sep)</option>
-                    <option value="q2">Q2 (Oct-Nov)</option>
-                    <option value="h1" selected>H1 (Jul-Nov)</option>
-                    <option value="elections">Elections (H1 + Jan)</option>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>View Period</label>
+                <select id="periodSelect">
+                    <option value="Q1">Q1 (Jul-Sep)</option>
+                    <option value="Q2" selected>Q2 (Oct-Dec)</option>
+                    <option value="Q3">Q3 (Jan-Mar)</option>
+                    <option value="Q4">Q4 (Apr-Jun)</option>
+                    <option value="H1">H1 (Jul-Dec)</option>
+                    <option value="H2">H2 (Jan-Jun)</option>
+                    <option value="Annual">Annual</option>
                 </select>
-                <select id="statusFilter" class="filter-select"><option value="all">All Status</option></select>
-                <button class="refresh-btn" onclick="loadAllData()">↻ Refresh</button>
             </div>
-            <div id="memberGrid" class="member-grid"></div>
-            <div id="lastUpdated" class="last-updated"></div>
+            <div class="control-group">
+                <label>Filter Status</label>
+                <select id="statusFilter">
+                    <option value="all">All Members</option>
+                    <option value="good">Good Standing</option>
+                    <option value="not-good">Needs Attention</option>
+                    <option value="new">New Members</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Filter Committee</label>
+                <select id="committeeFilter">
+                    <option value="all">All Committees</option>
+                    <option value="Club Service">Club Service</option>
+                    <option value="Community Service">Community Service</option>
+                    <option value="Finance">Finance</option>
+                    <option value="International Service">International Service</option>
+                    <option value="Professional Development">Professional Development</option>
+                    <option value="Membership">Membership</option>
+                    <option value="Public Image">Public Image</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Search</label>
+                <input type="text" id="searchInput" placeholder="Search by name...">
+            </div>
         </div>
-        <div id="modal" class="modal">
-            <div class="modal-content">
-                <span class="close-btn" onclick="closeModal()">&times;</span>
-                <div id="modalBody"></div>
+
+        <div class="stats-bar" id="statsBar">
+            <div class="stat-card">
+                <h3 id="totalMembers">-</h3>
+                <p>Total Members</p>
             </div>
+            <div class="stat-card">
+                <h3 id="goodStanding">-</h3>
+                <p>Good Standing</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="needsAttention">-</h3>
+                <p>Needs Attention</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="activeGuests">-</h3>
+                <p>Active Guests</p>
+            </div>
+            <div class="stat-card">
+                <h3 id="newMembers">-</h3>
+                <p>New Members (6mo)</p>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="members">👥 Members</button>
+            <button class="tab-btn" data-tab="guests">🎫 Guest Progress</button>
+            <button class="tab-btn" data-tab="birthdays">🎂 Birthdays</button>
+            <button class="tab-btn" data-tab="anniversaries">🎉 Induction Anniversaries</button>
+            <button class="tab-btn" data-tab="summary">📊 Summary Table</button>
+        </div>
+
+        <!-- Members Tab -->
+        <div class="tab-content active" id="members-tab">
+            <div class="section-title">
+                <span>📋 Member Attendance & Standing</span>
+            </div>
+            <div class="cards-grid" id="memberCards">
+                <div class="loading">Loading member data</div>
+            </div>
+        </div>
+
+        <!-- Guests Tab -->
+        <div class="tab-content" id="guests-tab">
+            <div class="section-title">
+                <span>🎯 Guest Progress Toward Membership</span>
+            </div>
+            <div class="cards-grid" id="guestCards">
+                <div class="loading">Loading guest data</div>
+            </div>
+        </div>
+
+        <!-- Birthdays Tab -->
+        <div class="tab-content" id="birthdays-tab">
+            <div class="section-title">
+                <span>🎂 Member Birthdays</span>
+                <button class="export-btn" onclick="exportBirthdays()">📤 Export for PI Chair</button>
+            </div>
+            <div class="filter-pills" id="birthdayMonthFilter">
+                <span class="filter-pill active" data-month="all">All Months</span>
+                <span class="filter-pill" data-month="1">Jan</span>
+                <span class="filter-pill" data-month="2">Feb</span>
+                <span class="filter-pill" data-month="3">Mar</span>
+                <span class="filter-pill" data-month="4">Apr</span>
+                <span class="filter-pill" data-month="5">May</span>
+                <span class="filter-pill" data-month="6">Jun</span>
+                <span class="filter-pill" data-month="7">Jul</span>
+                <span class="filter-pill" data-month="8">Aug</span>
+                <span class="filter-pill" data-month="9">Sep</span>
+                <span class="filter-pill" data-month="10">Oct</span>
+                <span class="filter-pill" data-month="11">Nov</span>
+                <span class="filter-pill" data-month="12">Dec</span>
+            </div>
+            <div class="celebration-list" id="birthdayList">
+                <div class="loading">Loading birthdays</div>
+            </div>
+        </div>
+
+        <!-- Anniversaries Tab -->
+        <div class="tab-content" id="anniversaries-tab">
+            <div class="section-title">
+                <span>🎉 Induction Anniversaries</span>
+                <button class="export-btn" onclick="exportAnniversaries()">📤 Export for PI Chair</button>
+            </div>
+            <div class="filter-pills" id="anniversaryMonthFilter">
+                <span class="filter-pill active" data-month="all">All Months</span>
+                <span class="filter-pill" data-month="1">Jan</span>
+                <span class="filter-pill" data-month="2">Feb</span>
+                <span class="filter-pill" data-month="3">Mar</span>
+                <span class="filter-pill" data-month="4">Apr</span>
+                <span class="filter-pill" data-month="5">May</span>
+                <span class="filter-pill" data-month="6">Jun</span>
+                <span class="filter-pill" data-month="7">Jul</span>
+                <span class="filter-pill" data-month="8">Aug</span>
+                <span class="filter-pill" data-month="9">Sep</span>
+                <span class="filter-pill" data-month="10">Oct</span>
+                <span class="filter-pill" data-month="11">Nov</span>
+                <span class="filter-pill" data-month="12">Dec</span>
+            </div>
+            <div class="celebration-list" id="anniversaryList">
+                <div class="loading">Loading anniversaries</div>
+            </div>
+        </div>
+
+        <!-- Summary Tab -->
+        <div class="tab-content" id="summary-tab">
+            <div class="section-title">
+                <span>📊 Attendance Summary Table</span>
+                <button class="export-btn" onclick="exportSummary()">📤 Export CSV</button>
+            </div>
+            <table class="summary-table" id="summaryTable">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Committee</th>
+                        <th>Business</th>
+                        <th>Fellowship</th>
+                        <th>Projects</th>
+                        <th>Committee Mtgs</th>
+                        <th>Overall %</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="summaryBody">
+                </tbody>
+            </table>
         </div>
     </div>
+
     <script>
-        const SHEET_ID = '1j0uOvYCe-DvOsPjxyb7RfLm7ddeB_LL99cJKeO40RaM';
-        // NO CORS proxy for Cloudflare Workers deployment
-        const GUEST_URL = \`https://docs.google.com/spreadsheets/d/\${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=\${encodeURIComponent('11. Guest Tracking Sheet')}\`;
-        const MEMBER_URL = \`https://docs.google.com/spreadsheets/d/\${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=\${encodeURIComponent('6. Member Registry')}\`;
-        const BOARD_URL = \`https://docs.google.com/spreadsheets/d/\${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=\${encodeURIComponent('10. Board Meeting Attendance')}\`;
-        const ATTENDANCE_URL = \`https://docs.google.com/spreadsheets/d/\${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=\${encodeURIComponent('5. All Attendance')}\`;
-        
-        // Meeting schedule
-        const ALL_MEETINGS = [
-            { date: '2025-07-12', display: '12th July 2025', type: 'Business Meeting', quarter: 'Q1' },
-            { date: '2025-07-26', display: '26th July 2025', type: 'Fellowship Meeting', quarter: 'Q1' },
-            { date: '2025-08-08', display: '8th August 2025', type: 'Business Meeting', quarter: 'Q1' },
-            { date: '2025-08-22', display: '22nd August 2025', type: 'Fellowship Meeting', quarter: 'Q1' },
-            { date: '2025-09-13', display: '13th September 2025', type: 'Business Meeting', quarter: 'Q1' },
-            { date: '2025-09-27', display: '27th September 2025', type: 'Fellowship Meeting', quarter: 'Q1' },
-            { date: '2025-10-06', display: '6th October 2025', type: 'Business Meeting', quarter: 'Q2' },
-            { date: '2025-10-24', display: '24th October 2025', type: 'Fellowship Meeting', quarter: 'Q2' },
-            { date: '2025-11-08', display: '8th November 2025', type: 'Business Meeting', quarter: 'Q2' },
-            { date: '2025-11-29', display: '29th November 2025', type: 'Fellowship Meeting', quarter: 'Q2' },
-        ];
-        
-        const TOTALS = {
-            q1: { meetings: 6, projects: 5 },
-            q2: { meetings: 4, projects: 5 },
-            h1: { meetings: 10, projects: 10 },
-            elections: { meetings: 12, projects: 10 },
-            boardAnnual: 12
+        // ============================================
+        // CONFIGURATION - UPDATE THESE VALUES
+        // ============================================
+        const SHEET_ID = '2PACX-1vSR9ql0N2PIMP52x94cysgD8cJkHGU3X72zJt9aUspLewh4l5k8ukWdeguxcphFvtjGp25xoGVwdtEe'; // Replace with your published sheet ID
+        const MEMBER_REGISTRY_GID = '1821690489'; // Update with actual GID for Member Registry sheet
+        const ALL_ATTENDANCE_GID = '1315129184'; // Update with actual GID for All Attendance sheet
+        const GUEST_TRACKING_GID = '1284804990'; // Update with actual GID for Guest Tracking sheet
+        const MEETING_SCHEDULE_GID = '1708148096'; // Update with actual GID for Meeting Schedule sheet
+
+        // ============================================
+        // COMMITTEE ASSIGNMENTS (from PDF)
+        // ============================================
+        const COMMITTEE_ASSIGNMENTS = {
+            // Members
+            'Adanna Edwards': ['Finance', 'Professional Development'],
+            'Andrew Hing': ['Club Service', 'Finance', 'Membership'],
+            'Asif Khan': ['Finance', 'International Service', 'Public Image'],
+            'Christina Harris': ['Club Service', 'Professional Development', 'Membership'],
+            'Christine Samuels': ['Club Service', 'Finance'],
+            'Cliffia Rollox': ['Club Service', 'Community Service', 'Public Image'], // Terminated
+            'Darin Hall': ['Community Service'],
+            'Dequan Wray': ['Club Service', 'Finance', 'Professional Development'],
+            'Ganesh Anand': ['Community Service', 'International Service', 'Professional Development'],
+            'Jaya Persaud': ['Community Service', 'International Service', 'Professional Development'],
+            'Jemima Stephenson': ['International Service'],
+            'Kadeem Bowen': ['Club Service'],
+            'Liane Langford': [],
+            'Mariah Lawrence': ['Club Service', 'Finance'],
+            'Nandita Singh': ['Professional Development'],
+            'Ngari Blair': ['Community Service', 'Finance', 'Professional Development'],
+            'Omari London': ['Club Service', 'International Service', 'Professional Development'],
+            'Ruth Manbodh': [],
+            'Tishana Bheer': ['International Service', 'Professional Development'],
+            'Vishal Roopnarine': [],
+            'Yushina Ramlall': ['Finance', 'Public Image'],
+            // Guests with committee assignments
+            'Orletta John': ['Community Service', 'Membership', 'Public Image'],
+            'Parmesh Ramgobin': ['Community Service', 'Professional Development'],
+            'Renika Anand': ['Community Service', 'International Service'],
+            'Tamara Bascom': ['Club Service', 'Community Service', 'International Service']
         };
-        
-        const NEW_MEMBERS_DEC7 = ['Tishana Bheer', 'Liane Langford', 'Renika Anand'];
-        const BOARD_MEMBERS = ['Adanna Edwards', 'Andrew Hing', 'Christine Samuels', 'Darin Hall', 'Ganesh Anand', 'Jemima Stephenson', 'Kadeem Bowen', 'Nandita Singh', 'Omari London', 'Ruth Manbodh', 'Vishal Roopnarine', 'Yushina Ramlall'];
-        
-        let members = [], guests = [], allAttendance = [], boardAttendance = {}, currentTab = 'members';
-        
-        async function fetchCSV(url, name) {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(\`\${name}: HTTP \${response.status}\`);
-            const text = await response.text();
-            return new Promise(resolve => { Papa.parse(text, { header: false, skipEmptyLines: true, complete: r => resolve(r.data) }); });
-        }
-        
-        async function loadAllData() {
-            document.getElementById('loadingMessage').style.display = 'block';
-            document.getElementById('mainContent').style.display = 'none';
-            document.getElementById('errorMessage').style.display = 'none';
+
+        // Board positions for RY 2025-2026
+        const BOARD_MEMBERS = [
+            'Jemima Stephenson', // President
+            'Darin Hall', // Vice President
+            'Ganesh Anand', // Secretary
+            'Adanna Edwards', // Treasurer
+            'Yushina Ramlall', // Finance Director
+            'Darin Hall', // Community Service Director
+            'Jemima Stephenson', // International Service Director
+            'Nandita Singh', // Professional Development Director
+            'Kadeem Bowen', // Club Service Director
+            'Vishal Roopnarine', // Sergeant-at-Arms
+            'Andrew Hing' // Assistant Secretary
+        ];
+
+        // ============================================
+        // GLOBAL DATA STORAGE
+        // ============================================
+        let memberData = [];
+        let attendanceData = [];
+        let guestData = [];
+        let meetingSchedule = [];
+        let currentPeriod = 'Q2';
+        let currentBirthdayMonth = 'all';
+        let currentAnniversaryMonth = 'all';
+
+        // ============================================
+        // DATA FETCHING
+        // ============================================
+        async function fetchSheetData(gid) {
+            const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}`;
             try {
-                console.log('Loading data from Google Sheets...');
-                const [guestData, memberData, boardData, attData] = await Promise.all([
-                    fetchCSV(GUEST_URL, 'Guests').catch(e => { console.error('Guest data error:', e); return []; }),
-                    fetchCSV(MEMBER_URL, 'Members').catch(e => { console.error('Member data error:', e); return []; }),
-                    fetchCSV(BOARD_URL, 'Board').catch(e => { console.error('Board data error:', e); return []; }),
-                    fetchCSV(ATTENDANCE_URL, 'Attendance').catch(e => { console.error('Attendance data error:', e); return []; })
-                ]);
-                
-                console.log('Data loaded - memberData rows:', memberData.length);
-                
-                if (memberData.length === 0) throw new Error('Could not load member data');
-                
-                processAttendance(attData);
-                processBoard(boardData);
-                processGuests(guestData);
-                processMembers(memberData);
-                linkNewMembersData();
-                calculateMemberStats();
-                
-                console.log('All processing complete. Members:', members.length);
-                
-                if (members.length === 0) {
-                    throw new Error('No members found after processing. Check Member Registry sheet format.');
-                }
-                
-                document.getElementById('loadingMessage').style.display = 'none';
-                document.getElementById('mainContent').style.display = 'block';
-                document.getElementById('lastUpdated').textContent = 'Updated: ' + new Date().toLocaleString();
-                updateFilters();
-                render();
+                const response = await fetch(url);
+                const text = await response.text();
+                const json = JSON.parse(text.substring(47, text.length - 2));
+                return parseSheetData(json);
             } catch (error) {
-                console.error('Load error:', error);
-                document.getElementById('loadingMessage').style.display = 'none';
-                document.getElementById('errorMessage').style.display = 'block';
-                document.getElementById('errorMessage').innerHTML = \`<h3>⚠️ Error Loading Data</h3><p>\${error.message}</p><p style="margin-top:15px;">Make sure your Google Sheet sharing is set to "Anyone with the link"</p><p><a href="https://docs.google.com/spreadsheets/d/\${SHEET_ID}/edit" target="_blank">Open Google Sheet</a></p><p style="margin-top:10px; font-size:0.9rem;">Check browser console (F12) for detailed errors.</p>\`;
+                console.error('Error fetching sheet:', error);
+                return [];
             }
         }
-        
-        function processAttendance(data) {
-            allAttendance = [];
-            if (!data.length) return;
-            const hdr = data.findIndex(r => r[0] === 'Full Name');
-            for (let i = (hdr >= 0 ? hdr : 2) + 1; i < data.length; i++) {
-                const r = data[i];
-                if (!r[0]) continue;
-                let dateStr = r[6], meetingType = r[7], quarter = r[9];
-                let month = null, dateKey = null;
-                if (dateStr) {
-                    const d = new Date(dateStr);
-                    if (!isNaN(d)) {
-                        month = d.getMonth() + 1;
-                        dateKey = d.toISOString().split('T')[0];
+
+        function parseSheetData(json) {
+            if (!json.table || !json.table.rows) return [];
+            const headers = json.table.cols.map(col => col.label || '');
+            return json.table.rows.map(row => {
+                const obj = {};
+                row.c.forEach((cell, i) => {
+                    if (headers[i]) {
+                        obj[headers[i]] = cell ? (cell.v !== null ? cell.v : '') : '';
                     }
-                }
-                allAttendance.push({ name: r[0].trim(), type: (meetingType || '').toString().trim(), month, quarter: (quarter || '').toString().trim(), dateKey });
-            }
-        }
-        
-        function processBoard(data) {
-            boardAttendance = {};
-            if (!data.length) return;
-            let currentQuarter = 0;
-            for (let i = 0; i < data.length; i++) {
-                const r = data[i];
-                if (r[0] && r[0].includes('QUARTER BOARD MEETING')) { currentQuarter++; continue; }
-                if (r[0] === 'First Name' || !r[0] || r[0] === 'Total') continue;
-                const name = \`\${(r[0] || '').trim()} \${(r[1] || '').trim()}\`.trim();
-                if (!name || name === ' ') continue;
-                if (!boardAttendance[name]) boardAttendance[name] = { total: 0, q1: 0, q2: 0, q3: 0, q4: 0 };
-                let qTotal = 0;
-                for (let j = 2; j <= 4; j++) if (r[j] == 1 || r[j] === '1') qTotal++;
-                if (currentQuarter === 1) boardAttendance[name].q1 = qTotal;
-                else if (currentQuarter === 2) boardAttendance[name].q2 = qTotal;
-                else if (currentQuarter === 3) boardAttendance[name].q3 = qTotal;
-                else if (currentQuarter === 4) boardAttendance[name].q4 = qTotal;
-                boardAttendance[name].total = boardAttendance[name].q1 + boardAttendance[name].q2 + boardAttendance[name].q3 + boardAttendance[name].q4;
-            }
-        }
-        
-        function processGuests(data) {
-            guests = [];
-            if (!data.length) return;
-            const hdr = data.findIndex(r => r[0] === 'First Name');
-            const map = new Map();
-            for (let i = (hdr >= 0 ? hdr : 1) + 1; i < data.length; i++) {
-                const r = data[i];
-                if (!r[0] || r[0] === 'First Name' || r[0] === 'NaN') continue;
-                const name = \`\${(r[0]||'').trim()} \${(r[1]||'').trim()}\`.trim();
-                if (!name || name === 'NaN NaN') continue;
-                if (NEW_MEMBERS_DEC7.includes(name)) continue;
-                let g = map.get(name);
-                if (!g) {
-                    g = { fullName: name, firstName: r[0], lastName: r[1], status: '', meetings: 0, projects: 0, info: false, committee: false, ug: false };
-                    map.set(name, g);
-                }
-                for (let j = 3; j <= 8; j++) if (r[j] == 1 || r[j] === 'TRUE' || r[j] === '1') g.meetings++;
-                for (let j = 12; j <= 22; j++) if (r[j] == 1 || r[j] === 'TRUE' || r[j] === '1') g.projects++;
-                if (r[24] === 'TRUE' || r[24] == 1 || r[24] === '1' || r[24] === true) g.info = true;
-                if (r[25] === 'TRUE' || r[25] == 1 || r[25] === '1' || r[25] === true) g.committee = true;
-                if (r[26] === 'TRUE' || r[26] == 1 || r[26] === '1' || r[26] === true) g.ug = true;
-                if (r[2] && r[2] !== g.status) g.status = r[2];
-            }
-            map.forEach(g => {
-                g.meetings = Math.min(g.meetings, TOTALS.h1.meetings);
-                g.projects = Math.min(g.projects, TOTALS.h1.projects);
-                g.meetPct = (g.meetings / TOTALS.h1.meetings) * 100;
-                g.projPct = (g.projects / TOTALS.h1.projects) * 100;
-                guests.push(g);
+                });
+                return obj;
             });
         }
-        
-        function formatDate(dateStr) {
-            if (!dateStr) return 'N/A';
-            const d = new Date(dateStr);
-            if (isNaN(d)) return 'N/A';
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            return \`\${d.getDate()} \${months[d.getMonth()]} \${d.getFullYear()}\`;
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        async function init() {
+            document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
+            
+            // For demo purposes, using sample data
+            // In production, uncomment the fetch calls and update GIDs
+            loadSampleData();
+            
+            // Uncomment these for production:
+            // memberData = await fetchSheetData(MEMBER_REGISTRY_GID);
+            // attendanceData = await fetchSheetData(ALL_ATTENDANCE_GID);
+            // guestData = await fetchSheetData(GUEST_TRACKING_GID);
+            // meetingSchedule = await fetchSheetData(MEETING_SCHEDULE_GID);
+            
+            setupEventListeners();
+            renderAll();
         }
-        
-        function calculateAge(dateStr) {
-            if (!dateStr) return null;
-            const birthDate = new Date(dateStr);
-            if (isNaN(birthDate)) return null;
+
+        function loadSampleData() {
+            // Sample member data based on your Member Registry
+            memberData = [
+                { id: 1, name: 'Adanna Edwards', firstName: 'Adanna', lastName: 'Edwards', email: 'adannaedwards91@gmail.com', contact: '6520114', dob: '1991-08-23', inducted: '2025-02-22', status: 'Active', category: 'Rotaractor' },
+                { id: 2, name: 'Andrew Hing', firstName: 'Andrew', lastName: 'Hing', email: 'andrewhingrcug@gmail.com', contact: '6567430', dob: '1995-07-21', inducted: '2019-03-09', status: 'Active', category: 'Rotaractor' },
+                { id: 3, name: 'Asif Khan', firstName: 'Asif', lastName: 'Khan', email: 'asifkhan007134@gmail.com', contact: '6459393', dob: '1997-11-16', inducted: '2025-05-10', status: 'Active', category: 'Rotaractor' },
+                { id: 4, name: 'Christina Harris', firstName: 'Christina', lastName: 'Harris', email: 'christinakharris22@gmail.com', contact: '6250748', dob: '1996-09-06', inducted: '2015-12-09', status: 'Active', category: 'Rotaractor' },
+                { id: 5, name: 'Christine Samuels', firstName: 'Christine', lastName: 'Samuels', email: 'slimtine_nica17@yahoo.com', contact: '6894881', dob: '1995-05-17', inducted: '2019-03-09', status: 'Active', category: 'Rotaractor' },
+                { id: 6, name: 'Cliffia Rollox', firstName: 'Cliffia', lastName: 'Rollox', email: 'cliffiarollox@gmail.com', contact: '6419954', dob: '1999-08-22', inducted: '2019-01-12', status: 'Terminated 19th Dec 2025', category: 'Rotaractor' },
+                { id: 7, name: 'Darin Hall', firstName: 'Darin', lastName: 'Hall', email: 'darinhall19@gmail.com', contact: '6033778', dob: '2003-12-05', inducted: '2023-04-29', status: 'Active', category: 'Rotaractor' },
+                { id: 8, name: 'Dequan Wray', firstName: 'Dequan', lastName: 'Wray', email: 'quan.wray@gmail.com', contact: '6670105', dob: '1998-08-14', inducted: '2021-02-13', status: 'Active', category: 'Rotaractor' },
+                { id: 9, name: 'Ganesh Anand', firstName: 'Ganesh', lastName: 'Anand', email: 'anandg.guy@gmail.com', contact: '6140036', dob: '1994-11-10', inducted: '2019-01-12', status: 'Active', category: 'Rotaractor' },
+                { id: 10, name: 'Jaya Persaud', firstName: 'Jaya', lastName: 'Persaud', email: 'jayapersaud.2000@gmail.com', contact: '6422552', dob: '2000-03-30', inducted: '2020-09-26', status: 'Active', category: 'Rotaractor' },
+                { id: 11, name: 'Jemima Stephenson', firstName: 'Jemima', lastName: 'Stephenson', email: 'jemmie2461@gmail.com', contact: '6861150', dob: '1994-12-26', inducted: '2016-03-12', status: 'Active', category: 'Rotaractor' },
+                { id: 12, name: 'Kadeem Bowen', firstName: 'Kadeem', lastName: 'Bowen', email: 'kadeembowen835@gmail.com', contact: '6556661', dob: '1998-05-03', inducted: '2019-06-22', status: 'Active', category: 'Rotaractor' },
+                { id: 13, name: 'Liane Langford', firstName: 'Liane', lastName: 'Langford', email: 'lianelangford52@gmail.com', contact: '6428977', dob: '2001-06-26', inducted: '2025-12-07', status: 'Active', category: 'Rotaractor' },
+                { id: 14, name: 'Mariah Lawrence', firstName: 'Mariah', lastName: 'Lawrence', email: 'mariahlawrence65@gmail.com', contact: '6542796', dob: '2002-04-05', inducted: '2025-06-28', status: 'Active', category: 'Rotaractor' },
+                { id: 15, name: 'Nandita Singh', firstName: 'Nandita', lastName: 'Singh', email: 'nanditasingh18@outlook.com', contact: '6214829', dob: '1998-01-15', inducted: '2019-03-09', status: 'Active', category: 'Rotaractor' },
+                { id: 16, name: 'Ngari Blair', firstName: 'Ngari', lastName: 'Blair', email: 'ngari.blair@gmail.com', contact: '6123456', dob: '1999-07-20', inducted: '2024-02-10', status: 'Active', category: 'Rotaractor' },
+                { id: 17, name: 'Omari London', firstName: 'Omari', lastName: 'London', email: 'omarilondon18@gmail.com', contact: '6805041', dob: '1998-10-12', inducted: '2019-03-09', status: 'Active', category: 'Rotaractor' },
+                { id: 18, name: 'Ruth Manbodh', firstName: 'Ruth', lastName: 'Manbodh', email: 'ruthmanbodh@gmail.com', contact: '6387401', dob: '1995-02-14', inducted: '2019-01-12', status: 'Active', category: 'Rotaractor' },
+                { id: 19, name: 'Tishana Bheer', firstName: 'Tishana', lastName: 'Bheer', email: 'tishana.bheer@gmail.com', contact: '6234567', dob: '1999-04-08', inducted: '2024-01-20', status: 'Active', category: 'Rotaractor' },
+                { id: 20, name: 'Vishal Roopnarine', firstName: 'Vishal', lastName: 'Roopnarine', email: 'vishalroopnarine@gmail.com', contact: '6297577', dob: '1994-06-30', inducted: '2019-01-12', status: 'Active', category: 'Rotaractor' },
+                { id: 21, name: 'Yushina Ramlall', firstName: 'Yushina', lastName: 'Ramlall', email: 'yushina.ramlall@gmail.com', contact: '6345678', dob: '1997-09-25', inducted: '2020-11-14', status: 'Active', category: 'Rotaractor' },
+                { id: 22, name: 'Orletta John', firstName: 'Orletta', lastName: 'John', email: 'orletta.john@gmail.com', contact: '6456789', dob: '2000-03-15', inducted: '2025-12-07', status: 'Active', category: 'Rotaractor' },
+                { id: 23, name: 'Tamara Bascom', firstName: 'Tamara', lastName: 'Bascom', email: 'tamara.bascom@gmail.com', contact: '6567890', dob: '1999-11-02', inducted: '2025-12-07', status: 'Active', category: 'Rotaractor' }
+            ];
+
+            // Sample attendance stats (you'll replace with actual calculated data)
+            memberData.forEach(m => {
+                m.businessMeetings = Math.floor(Math.random() * 3);
+                m.fellowshipMeetings = Math.floor(Math.random() * 3);
+                m.projects = Math.floor(Math.random() * 5);
+                m.committeeMeetings = Math.floor(Math.random() * 2);
+                m.totalBusinessMeetings = 2;
+                m.totalFellowshipMeetings = 2;
+                m.totalProjects = 5;
+                m.overallPercentage = ((m.businessMeetings + m.fellowshipMeetings) / 4 * 100).toFixed(0);
+            });
+
+            // Sample guest data
+            guestData = [
+                { name: 'Parmesh Ramgobin', firstName: 'Parmesh', lastName: 'Ramgobin', status: 'NEEDS MORE WORK', meetingAttendance: 2, totalMeetings: 6, meetingPercentage: 33, projectAttendance: 2, totalProjects: 5, projectPercentage: 40, infoSession: false, committeeMeeting: false, ugStudent: true },
+                { name: 'Renika Anand', firstName: 'Renika', lastName: 'Anand', status: 'NEEDS MORE WORK', meetingAttendance: 3, totalMeetings: 6, meetingPercentage: 50, projectAttendance: 3, totalProjects: 5, projectPercentage: 60, infoSession: true, committeeMeeting: false, ugStudent: true },
+                { name: 'Devkumar Gangaram', firstName: 'Devkumar', lastName: 'Gangaram', status: 'NEEDS MORE WORK', meetingAttendance: 1, totalMeetings: 6, meetingPercentage: 17, projectAttendance: 3, totalProjects: 5, projectPercentage: 60, infoSession: false, committeeMeeting: false, ugStudent: true },
+                { name: 'Tatyana Jacobs', firstName: 'Tatyana', lastName: 'Jacobs', status: 'NEEDS MORE WORK', meetingAttendance: 4, totalMeetings: 6, meetingPercentage: 67, projectAttendance: 2, totalProjects: 5, projectPercentage: 40, infoSession: true, committeeMeeting: true, ugStudent: true },
+                { name: 'Vani Singh', firstName: 'Vani', lastName: 'Singh', status: 'NO ATTENDANCE', meetingAttendance: 0, totalMeetings: 6, meetingPercentage: 0, projectAttendance: 1, totalProjects: 5, projectPercentage: 20, infoSession: false, committeeMeeting: false, ugStudent: true },
+                { name: 'Alexei Cox', firstName: 'Alexei', lastName: 'Cox', status: 'NO ATTENDANCE', meetingAttendance: 0, totalMeetings: 6, meetingPercentage: 0, projectAttendance: 1, totalProjects: 5, projectPercentage: 20, infoSession: false, committeeMeeting: false, ugStudent: true }
+            ];
+        }
+
+        // ============================================
+        // EVENT LISTENERS
+        // ============================================
+        function setupEventListeners() {
+            document.getElementById('periodSelect').addEventListener('change', (e) => {
+                currentPeriod = e.target.value;
+                renderAll();
+            });
+
+            document.getElementById('statusFilter').addEventListener('change', renderMembers);
+            document.getElementById('committeeFilter').addEventListener('change', renderMembers);
+            document.getElementById('searchInput').addEventListener('input', renderMembers);
+
+            // Tab switching
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    e.target.classList.add('active');
+                    document.getElementById(e.target.dataset.tab + '-tab').classList.add('active');
+                });
+            });
+
+            // Birthday month filter
+            document.querySelectorAll('#birthdayMonthFilter .filter-pill').forEach(pill => {
+                pill.addEventListener('click', (e) => {
+                    document.querySelectorAll('#birthdayMonthFilter .filter-pill').forEach(p => p.classList.remove('active'));
+                    e.target.classList.add('active');
+                    currentBirthdayMonth = e.target.dataset.month;
+                    renderBirthdays();
+                });
+            });
+
+            // Anniversary month filter
+            document.querySelectorAll('#anniversaryMonthFilter .filter-pill').forEach(pill => {
+                pill.addEventListener('click', (e) => {
+                    document.querySelectorAll('#anniversaryMonthFilter .filter-pill').forEach(p => p.classList.remove('active'));
+                    e.target.classList.add('active');
+                    currentAnniversaryMonth = e.target.dataset.month;
+                    renderAnniversaries();
+                });
+            });
+        }
+
+        // ============================================
+        // UTILITY FUNCTIONS
+        // ============================================
+        function calculateAge(dateString) {
+            if (!dateString) return '-';
             const today = new Date();
+            const birthDate = new Date(dateString);
             let age = today.getFullYear() - birthDate.getFullYear();
-            const m = today.getMonth() - birthDate.getMonth();
-            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
                 age--;
             }
             return age;
         }
-        
-        function processMembers(data) {
-            members = [];
-            if (!data.length) return;
-            
-            // Find the actual header row - skip instruction rows
-            let hdr = -1;
-            for (let i = 0; i < Math.min(10, data.length); i++) {
-                if (data[i][0] === 'ID' || (data[i][1] && data[i][1].toString().includes('Full Name'))) {
-                    hdr = i;
-                    break;
-                }
+
+        function calculateYearsInducted(dateString) {
+            if (!dateString) return 0;
+            const today = new Date();
+            const inductedDate = new Date(dateString);
+            let years = today.getFullYear() - inductedDate.getFullYear();
+            const monthDiff = today.getMonth() - inductedDate.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < inductedDate.getDate())) {
+                years--;
             }
-            
-            if (hdr === -1) {
-                console.error('Could not find Member Registry header row');
-                return;
-            }
-            
-            console.log('Member Registry header found at row:', hdr);
-            console.log('Header row:', data[hdr]);
-            
-            for (let i = hdr + 1; i < data.length; i++) {
-                const r = data[i];
-                if (!r[1] || r[1] === 'Full Name' || r[1] === '') continue;
-                
-                const name = r[1].toString().trim();
-                if (!name) continue;
-                
-                const isNewDec7 = NEW_MEMBERS_DEC7.includes(name);
-                const isBoardMember = BOARD_MEMBERS.includes(name);
-                // Column 10 contains the Status (Active/Terminated)
-                const registryStatus = (r[10] || '').toString().trim();
-                const isTerminated = registryStatus.toLowerCase().includes('terminated');
-                
-                members.push({
-                    fullName: name, 
-                    firstName: (r[2] || '').toString().trim(), 
-                    lastName: (r[3] || '').toString().trim(), 
-                    email: (r[4] || '').toString().trim(),
-                    contact: (r[5] || '').toString().trim(),
-                    dateOfBirth: r[6] || '',
-                    age: calculateAge(r[6]),
-                    dateInducted: r[7] || '',
-                    category: (r[8] || 'Rotaractor').toString().trim(),
-                    ugStatus: (r[9] || '').toString().trim(),
-                    education: (r[11] || '').toString().trim(),
-                    profession: (r[12] || '').toString().trim(),
-                    armsOfService: (r[13] || '').toString().trim(),
-                    positionsHeld: (r[14] || '').toString().trim(),
-                    incomingPosition: (r[15] || '').toString().trim(),
-                    talentsHobbies: (r[16] || '').toString().trim(),
-                    isNewDec7, 
-                    isBoardMember, 
-                    isTerminated, 
-                    terminatedDate: isTerminated ? registryStatus : null,
-                    boardMeetings: boardAttendance[name] || { total: 0, q1: 0, q2: 0, q3: 0, q4: 0 },
-                    q1: { meet: 0, proj: 0 }, 
-                    q2: { meet: 0, proj: 0 }, 
-                    h1: { meet: 0, proj: 0 },
-                    jan: { bm: 0, fm: 0 }, 
-                    elections: { meet: 0, pct: 0, eligible: false },
-                    hasData: false, 
-                    status: 'Active',
-                    attendedMeetings: [], 
-                    missedMeetings: []
-                });
-            }
-            
-            console.log('Processed members:', members.length);
-            if (members.length > 0) {
-                console.log('Sample member:', members[0].fullName, members[0].email);
-            }
+            return years;
         }
-        
-        function getMeetingsAttendedAndMissed(memberName) {
-            const memberAtt = allAttendance.filter(a => a.name === memberName && (a.type === 'Business Meeting' || a.type === 'Fellowship Meeting'));
-            const attendedKeys = new Set(memberAtt.map(a => \`\${a.dateKey}-\${a.type}\`));
-            const attended = [];
-            const missed = [];
-            ALL_MEETINGS.forEach(m => {
-                const key = \`\${m.date}-\${m.type}\`;
-                if (attendedKeys.has(key)) {
-                    attended.push(m);
-                } else {
-                    missed.push(m);
-                }
-            });
-            return { attended, missed };
+
+        function isNewMember(inductedDate) {
+            if (!inductedDate) return false;
+            const sixMonthsAgo = new Date();
+            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+            return new Date(inductedDate) > sixMonthsAgo;
         }
-        
-        function linkNewMembersData() {
-            members.forEach(m => {
-                if (!m.isNewDec7) return;
-                const att = allAttendance.filter(a => a.name === m.fullName);
-                m.hasData = att.length > 0;
-                m.q1.meet = Math.min(att.filter(a => a.quarter === 'Q1' && (a.type === 'Business Meeting' || a.type === 'Fellowship Meeting')).length, TOTALS.q1.meetings);
-                m.q1.proj = Math.min(att.filter(a => a.quarter === 'Q1' && a.type === 'Project').length, TOTALS.q1.projects);
-                m.q2.meet = Math.min(att.filter(a => a.quarter === 'Q2' && (a.type === 'Business Meeting' || a.type === 'Fellowship Meeting')).length, TOTALS.q2.meetings);
-                m.q2.proj = Math.min(att.filter(a => a.quarter === 'Q2' && a.type === 'Project').length, TOTALS.q2.projects);
-                m.h1.meet = m.q1.meet + m.q2.meet;
-                m.h1.proj = Math.min(m.q1.proj + m.q2.proj, TOTALS.h1.projects);
-                m.jan.bm = Math.min(att.filter(a => a.month === 1 && a.type === 'Business Meeting').length, 1);
-                m.jan.fm = Math.min(att.filter(a => a.month === 1 && a.type === 'Fellowship Meeting').length, 1);
-                const h1Pct = (m.h1.meet / TOTALS.h1.meetings) * 100;
-                m.status = h1Pct >= 60 ? 'Good Standing' : 'Not in Good Standing';
-                m.elections.meet = m.h1.meet + m.jan.bm + m.jan.fm;
-                m.elections.pct = (m.elections.meet / TOTALS.elections.meetings) * 100;
-                m.elections.eligible = m.elections.pct >= 60;
-                const { attended, missed } = getMeetingsAttendedAndMissed(m.fullName);
-                m.attendedMeetings = attended;
-                m.missedMeetings = missed;
-            });
+
+        function getProgressClass(percentage) {
+            if (percentage >= 60) return 'good';
+            if (percentage >= 40) return 'warning';
+            return 'danger';
         }
-        
-        function calculateMemberStats() {
-            members.forEach(m => {
-                if (m.isNewDec7) return;
-                if (m.isTerminated) { m.status = 'Terminated'; m.hasData = false; return; }
-                const att = allAttendance.filter(a => a.name === m.fullName);
-                m.hasData = att.length > 0;
-                m.q1.meet = Math.min(att.filter(a => a.quarter === 'Q1' && (a.type === 'Business Meeting' || a.type === 'Fellowship Meeting')).length, TOTALS.q1.meetings);
-                m.q1.proj = Math.min(att.filter(a => a.quarter === 'Q1' && a.type === 'Project').length, TOTALS.q1.projects);
-                m.q2.meet = Math.min(att.filter(a => a.quarter === 'Q2' && (a.type === 'Business Meeting' || a.type === 'Fellowship Meeting')).length, TOTALS.q2.meetings);
-                m.q2.proj = Math.min(att.filter(a => a.quarter === 'Q2' && a.type === 'Project').length, TOTALS.q2.projects);
-                m.h1.meet = m.q1.meet + m.q2.meet;
-                m.h1.proj = Math.min(m.q1.proj + m.q2.proj, TOTALS.h1.projects);
-                m.jan.bm = Math.min(att.filter(a => a.month === 1 && a.type === 'Business Meeting').length, 1);
-                m.jan.fm = Math.min(att.filter(a => a.month === 1 && a.type === 'Fellowship Meeting').length, 1);
-                const h1Pct = (m.h1.meet / TOTALS.h1.meetings) * 100;
-                m.status = !m.hasData ? 'No Data' : (h1Pct >= 60 ? 'Good Standing' : 'Not in Good Standing');
-                m.elections.meet = m.h1.meet + m.jan.bm + m.jan.fm;
-                m.elections.pct = (m.elections.meet / TOTALS.elections.meetings) * 100;
-                m.elections.eligible = m.elections.pct >= 60 && !m.isTerminated && m.hasData;
-                const { attended, missed } = getMeetingsAttendedAndMissed(m.fullName);
-                m.attendedMeetings = attended;
-                m.missedMeetings = missed;
-            });
+
+        function isGoodStanding(member) {
+            return member.overallPercentage >= 60 && !member.status.toLowerCase().includes('terminated');
         }
-        
-        function setTab(tab) {
-            currentTab = tab;
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelector(\`.tab.\${tab}\`).classList.add('active');
-            document.getElementById('periodFilter').style.display = tab === 'members' ? 'block' : 'none';
-            updateFilters(); 
-            render();
+
+        function getCommittees(name) {
+            return COMMITTEE_ASSIGNMENTS[name] || [];
         }
-        
-        function updateFilters() {
-            const statusFilter = document.getElementById('statusFilter');
-            const currentValue = statusFilter.value;
-            statusFilter.innerHTML = '<option value="all">All Status</option>';
-            if (currentTab === 'members') {
-                statusFilter.innerHTML += '<option value="good">Good Standing</option><option value="notgood">Not in Good Standing</option><option value="nodata">No Data</option><option value="terminated">Terminated</option>';
-            } else {
-                statusFilter.innerHTML += '<option value="infosession">Attended Info</option><option value="committeeapproval">Committee Approved</option><option value="eligible">Eligible for Membership</option><option value="notug">Not UG</option>';
-            }
-            statusFilter.value = currentValue;
+
+        function isOnBoard(name) {
+            return BOARD_MEMBERS.includes(name);
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+
+        // ============================================
+        // RENDER FUNCTIONS
+        // ============================================
+        function renderAll() {
             updateStats();
+            renderMembers();
+            renderGuests();
+            renderBirthdays();
+            renderAnniversaries();
+            renderSummaryTable();
         }
-        
+
         function updateStats() {
-            let data = currentTab === 'members' ? members : guests;
-            const statsBar = document.getElementById('statsBar');
-            if (currentTab === 'members') {
-                const total = members.length;
-                const good = members.filter(m => m.status === 'Good Standing').length;
-                const notgood = members.filter(m => m.status === 'Not in Good Standing').length;
-                const nodata = members.filter(m => m.status === 'No Data').length;
-                const terminated = members.filter(m => m.isTerminated).length;
-                statsBar.innerHTML = \`
-                    <div class="stat-box"><div class="stat-value">\${total}</div><div class="stat-label">Total Members</div></div>
-                    <div class="stat-box"><div class="stat-value">\${good}</div><div class="stat-label">Good Standing</div></div>
-                    <div class="stat-box"><div class="stat-value">\${notgood}</div><div class="stat-label">Not in Good Standing</div></div>
-                    <div class="stat-box"><div class="stat-value">\${nodata}</div><div class="stat-label">No Data</div></div>
-                    \${terminated > 0 ? \`<div class="stat-box"><div class="stat-value">\${terminated}</div><div class="stat-label">Terminated</div></div>\` : ''}
-                \`;
-            } else {
-                const total = guests.length;
-                const attended = guests.filter(g => g.info).length;
-                const committee = guests.filter(g => g.committee).length;
-                const eligible = guests.filter(g => g.meetPct >= 60 && g.projPct >= 50).length;
-                statsBar.innerHTML = \`
-                    <div class="stat-box"><div class="stat-value">\${total}</div><div class="stat-label">Total Guests</div></div>
-                    <div class="stat-box"><div class="stat-value">\${attended}</div><div class="stat-label">Attended Info</div></div>
-                    <div class="stat-box"><div class="stat-value">\${committee}</div><div class="stat-label">Committee Approved</div></div>
-                    <div class="stat-box"><div class="stat-value">\${eligible}</div><div class="stat-label">Eligible</div></div>
-                \`;
-            }
+            const activeMembers = memberData.filter(m => !m.status.toLowerCase().includes('terminated'));
+            const goodStandingCount = activeMembers.filter(m => isGoodStanding(m)).length;
+            const newMembersCount = activeMembers.filter(m => isNewMember(m.inducted)).length;
+            const activeGuestsCount = guestData.filter(g => g.status !== 'NO ATTENDANCE').length;
+
+            document.getElementById('totalMembers').textContent = activeMembers.length;
+            document.getElementById('goodStanding').textContent = goodStandingCount;
+            document.getElementById('needsAttention').textContent = activeMembers.length - goodStandingCount;
+            document.getElementById('activeGuests').textContent = activeGuestsCount;
+            document.getElementById('newMembers').textContent = newMembersCount;
         }
-        
-        function render() {
-            const search = document.getElementById('searchInput').value.toLowerCase();
-            const status = document.getElementById('statusFilter').value;
-            const period = document.getElementById('periodFilter').value;
-            const grid = document.getElementById('memberGrid');
-            
-            let data = currentTab === 'members' ? members : guests;
-            data = data.filter(d => d.fullName.toLowerCase().includes(search));
-            
-            if (status !== 'all') {
-                if (currentTab === 'members') {
-                    if (status === 'good') data = data.filter(m => m.status === 'Good Standing');
-                    else if (status === 'notgood') data = data.filter(m => m.status === 'Not in Good Standing');
-                    else if (status === 'nodata') data = data.filter(m => m.status === 'No Data');
-                    else if (status === 'terminated') data = data.filter(m => m.isTerminated);
-                } else {
-                    if (status === 'infosession') data = data.filter(g => g.info);
-                    else if (status === 'committeeapproval') data = data.filter(g => g.committee);
-                    else if (status === 'eligible') data = data.filter(g => g.meetPct >= 60 && g.projPct >= 50);
-                    else if (status === 'notug') data = data.filter(g => !g.ug);
+
+        function renderMembers() {
+            const container = document.getElementById('memberCards');
+            const statusFilter = document.getElementById('statusFilter').value;
+            const committeeFilter = document.getElementById('committeeFilter').value;
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+
+            let filtered = memberData.filter(m => {
+                // Search filter
+                if (searchTerm && !m.name.toLowerCase().includes(searchTerm)) return false;
+                
+                // Status filter
+                if (statusFilter === 'good' && !isGoodStanding(m)) return false;
+                if (statusFilter === 'not-good' && isGoodStanding(m)) return false;
+                if (statusFilter === 'new' && !isNewMember(m.inducted)) return false;
+                
+                // Committee filter
+                if (committeeFilter !== 'all') {
+                    const committees = getCommittees(m.name);
+                    if (!committees.includes(committeeFilter)) return false;
                 }
+                
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="no-data">No members match the current filters</div>';
+                return;
             }
+
+            container.innerHTML = filtered.map(member => {
+                const committees = getCommittees(member.name);
+                const isNew = isNewMember(member.inducted);
+                const onBoard = isOnBoard(member.name);
+                const yearsInducted = calculateYearsInducted(member.inducted);
+                const age = calculateAge(member.dob);
+                const isTerminated = member.status.toLowerCase().includes('terminated');
+                const goodStanding = isGoodStanding(member);
+
+                return `
+                    <div class="member-card ${isTerminated ? '' : (goodStanding ? 'good-standing' : 'not-good-standing')}">
+                        <div class="card-header">
+                            <div class="member-name">${member.name}</div>
+                            <div class="member-badges">
+                                ${isTerminated ? '<span class="badge badge-terminated">Terminated</span>' : '<span class="badge badge-member">Member</span>'}
+                                ${isNew && !isTerminated ? '<span class="badge badge-new">New</span>' : ''}
+                                ${onBoard && !isTerminated ? '<span class="badge badge-board">Board</span>' : ''}
+                            </div>
+                        </div>
+                        <div class="member-details">
+                            <p>📧 ${member.email}</p>
+                            <p>📱 ${member.contact}</p>
+                            <p>🎂 Age: ${age} | 🗓️ Member for ${yearsInducted} year${yearsInducted !== 1 ? 's' : ''}</p>
+                            <p>📅 Inducted: ${formatDate(member.inducted)}</p>
+                            ${committees.length > 0 ? `<p>🏷️ ${committees.map(c => `<span class="committee-tag">${c}</span>`).join('')}</p>` : ''}
+                        </div>
+                        ${!isTerminated ? `
+                        <div class="progress-section">
+                            <div class="progress-item">
+                                <div class="progress-label">
+                                    <span>Business Meetings</span>
+                                    <span>${member.businessMeetings}/${member.totalBusinessMeetings}</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill ${getProgressClass(member.businessMeetings/member.totalBusinessMeetings*100)}" 
+                                         style="width: ${member.businessMeetings/member.totalBusinessMeetings*100}%"></div>
+                                </div>
+                            </div>
+                            <div class="progress-item">
+                                <div class="progress-label">
+                                    <span>Fellowship Meetings</span>
+                                    <span>${member.fellowshipMeetings}/${member.totalFellowshipMeetings}</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill ${getProgressClass(member.fellowshipMeetings/member.totalFellowshipMeetings*100)}" 
+                                         style="width: ${member.fellowshipMeetings/member.totalFellowshipMeetings*100}%"></div>
+                                </div>
+                            </div>
+                            <div class="progress-item">
+                                <div class="progress-label">
+                                    <span>Projects</span>
+                                    <span>${member.projects}/${member.totalProjects}</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill ${getProgressClass(member.projects/member.totalProjects*100)}" 
+                                         style="width: ${member.projects/member.totalProjects*100}%"></div>
+                                </div>
+                            </div>
+                            <div class="progress-item">
+                                <div class="progress-label">
+                                    <span>Overall Attendance</span>
+                                    <span>${member.overallPercentage}%</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill ${getProgressClass(member.overallPercentage)}" 
+                                         style="width: ${member.overallPercentage}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        ` : '<p style="color: #7f8c8d; text-align: center; padding: 20px;">Member terminated - attendance not tracked</p>'}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderGuests() {
+            const container = document.getElementById('guestCards');
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+
+            let filtered = guestData.filter(g => {
+                if (searchTerm && !g.name.toLowerCase().includes(searchTerm)) return false;
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="no-data">No guests found</div>';
+                return;
+            }
+
+            container.innerHTML = filtered.map(guest => {
+                const committees = getCommittees(guest.name);
+                const meetingProgress = (guest.meetingAttendance / guest.totalMeetings * 100) || 0;
+                const projectProgress = (guest.projectAttendance / guest.totalProjects * 100) || 0;
+
+                return `
+                    <div class="member-card guest-card">
+                        <div class="card-header">
+                            <div class="member-name">${guest.name}</div>
+                            <div class="member-badges">
+                                <span class="badge badge-guest">Guest</span>
+                            </div>
+                        </div>
+                        <div class="member-details">
+                            <p>📊 Status: <strong>${guest.status}</strong></p>
+                            ${guest.ugStudent ? '<p>🎓 UG Student/Graduate: ✅</p>' : '<p>🎓 UG Student/Graduate: ❌</p>'}
+                            ${committees.length > 0 ? `<p>🏷️ ${committees.map(c => `<span class="committee-tag">${c}</span>`).join('')}</p>` : ''}
+                        </div>
+                        <div class="progress-section">
+                            <div class="progress-item">
+                                <div class="progress-label">
+                                    <span>Meeting Attendance (60% req.)</span>
+                                    <span>${guest.meetingAttendance}/${guest.totalMeetings} (${guest.meetingPercentage}%)</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill ${getProgressClass(guest.meetingPercentage)}" 
+                                         style="width: ${Math.min(guest.meetingPercentage, 100)}%"></div>
+                                </div>
+                            </div>
+                            <div class="progress-item">
+                                <div class="progress-label">
+                                    <span>Project Participation (50% req.)</span>
+                                    <span>${guest.projectAttendance}/${guest.totalProjects} (${guest.projectPercentage}%)</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill ${getProgressClass(guest.projectPercentage / 0.5)}" 
+                                         style="width: ${Math.min(guest.projectPercentage * 2, 100)}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="checklist">
+                            <div class="checklist-item ${guest.infoSession ? 'completed' : 'pending'}">
+                                <span class="checklist-icon">${guest.infoSession ? '✅' : '⬜'}</span>
+                                <span>Information Session</span>
+                            </div>
+                            <div class="checklist-item ${guest.committeeMeeting ? 'completed' : 'pending'}">
+                                <span class="checklist-icon">${guest.committeeMeeting ? '✅' : '⬜'}</span>
+                                <span>Committee Meeting</span>
+                            </div>
+                            <div class="checklist-item ${guest.meetingPercentage >= 60 ? 'completed' : 'pending'}">
+                                <span class="checklist-icon">${guest.meetingPercentage >= 60 ? '✅' : '⬜'}</span>
+                                <span>60% Meetings</span>
+                            </div>
+                            <div class="checklist-item ${guest.projectPercentage >= 50 ? 'completed' : 'pending'}">
+                                <span class="checklist-icon">${guest.projectPercentage >= 50 ? '✅' : '⬜'}</span>
+                                <span>50% Projects</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderBirthdays() {
+            const container = document.getElementById('birthdayList');
+            const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 
+                               'July', 'August', 'September', 'October', 'November', 'December'];
+
+            let filtered = memberData.filter(m => {
+                if (!m.dob || m.status.toLowerCase().includes('terminated')) return false;
+                if (currentBirthdayMonth === 'all') return true;
+                const month = new Date(m.dob).getMonth() + 1;
+                return month === parseInt(currentBirthdayMonth);
+            });
+
+            // Sort by month, then day
+            filtered.sort((a, b) => {
+                const dateA = new Date(a.dob);
+                const dateB = new Date(b.dob);
+                if (dateA.getMonth() !== dateB.getMonth()) {
+                    return dateA.getMonth() - dateB.getMonth();
+                }
+                return dateA.getDate() - dateB.getDate();
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="no-data">No birthdays found for this filter</div>';
+                return;
+            }
+
+            container.innerHTML = filtered.map(member => {
+                const dob = new Date(member.dob);
+                const age = calculateAge(member.dob);
+                const monthName = monthNames[dob.getMonth() + 1];
+
+                return `
+                    <div class="celebration-card">
+                        <div class="celebration-icon">🎂</div>
+                        <div class="celebration-info">
+                            <h4>${member.name}</h4>
+                            <p>${monthName} ${dob.getDate()} • Turning ${age + 1}</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderAnniversaries() {
+            const container = document.getElementById('anniversaryList');
+            const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 
+                               'July', 'August', 'September', 'October', 'November', 'December'];
+
+            let filtered = memberData.filter(m => {
+                if (!m.inducted || m.status.toLowerCase().includes('terminated')) return false;
+                if (currentAnniversaryMonth === 'all') return true;
+                const month = new Date(m.inducted).getMonth() + 1;
+                return month === parseInt(currentAnniversaryMonth);
+            });
+
+            // Sort by month, then day
+            filtered.sort((a, b) => {
+                const dateA = new Date(a.inducted);
+                const dateB = new Date(b.inducted);
+                if (dateA.getMonth() !== dateB.getMonth()) {
+                    return dateA.getMonth() - dateB.getMonth();
+                }
+                return dateA.getDate() - dateB.getDate();
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="no-data">No induction anniversaries found for this filter</div>';
+                return;
+            }
+
+            container.innerHTML = filtered.map(member => {
+                const inducted = new Date(member.inducted);
+                const years = calculateYearsInducted(member.inducted);
+                const monthName = monthNames[inducted.getMonth() + 1];
+
+                return `
+                    <div class="celebration-card">
+                        <div class="celebration-icon">🎉</div>
+                        <div class="celebration-info">
+                            <h4>${member.name}</h4>
+                            <p>${monthName} ${inducted.getDate()} • ${years + 1} year${years !== 0 ? 's' : ''} in RCUG</p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderSummaryTable() {
+            const tbody = document.getElementById('summaryBody');
+            const activeMembers = memberData.filter(m => !m.status.toLowerCase().includes('terminated'));
+
+            tbody.innerHTML = activeMembers.map(member => {
+                const committees = getCommittees(member.name);
+                const goodStanding = isGoodStanding(member);
+
+                return `
+                    <tr>
+                        <td>${member.name}</td>
+                        <td>${committees.join(', ') || '-'}</td>
+                        <td>${member.businessMeetings}/${member.totalBusinessMeetings}</td>
+                        <td>${member.fellowshipMeetings}/${member.totalFellowshipMeetings}</td>
+                        <td>${member.projects}/${member.totalProjects}</td>
+                        <td>${member.committeeMeetings || 0}</td>
+                        <td>${member.overallPercentage}%</td>
+                        <td style="color: ${goodStanding ? '#27ae60' : '#e74c3c'}">${goodStanding ? '✅ Good' : '⚠️ Check'}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // ============================================
+        // EXPORT FUNCTIONS
+        // ============================================
+        function exportBirthdays() {
+            const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 
+                               'July', 'August', 'September', 'October', 'November', 'December'];
             
+            let data = memberData
+                .filter(m => m.dob && !m.status.toLowerCase().includes('terminated'))
+                .filter(m => currentBirthdayMonth === 'all' || new Date(m.dob).getMonth() + 1 === parseInt(currentBirthdayMonth))
+                .map(m => {
+                    const dob = new Date(m.dob);
+                    return {
+                        Name: m.name,
+                        Month: monthNames[dob.getMonth() + 1],
+                        Day: dob.getDate(),
+                        Age: calculateAge(m.dob) + 1
+                    };
+                });
+
+            downloadCSV(data, `RCUG_Birthdays_${currentBirthdayMonth === 'all' ? 'All' : monthNames[currentBirthdayMonth]}.csv`);
+        }
+
+        function exportAnniversaries() {
+            const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 
+                               'July', 'August', 'September', 'October', 'November', 'December'];
+            
+            let data = memberData
+                .filter(m => m.inducted && !m.status.toLowerCase().includes('terminated'))
+                .filter(m => currentAnniversaryMonth === 'all' || new Date(m.inducted).getMonth() + 1 === parseInt(currentAnniversaryMonth))
+                .map(m => {
+                    const inducted = new Date(m.inducted);
+                    return {
+                        Name: m.name,
+                        Month: monthNames[inducted.getMonth() + 1],
+                        Day: inducted.getDate(),
+                        Years: calculateYearsInducted(m.inducted) + 1
+                    };
+                });
+
+            downloadCSV(data, `RCUG_Anniversaries_${currentAnniversaryMonth === 'all' ? 'All' : monthNames[currentAnniversaryMonth]}.csv`);
+        }
+
+        function exportSummary() {
+            const activeMembers = memberData.filter(m => !m.status.toLowerCase().includes('terminated'));
+            
+            let data = activeMembers.map(m => ({
+                Name: m.name,
+                Committee: getCommittees(m.name).join('; ') || '-',
+                'Business Meetings': `${m.businessMeetings}/${m.totalBusinessMeetings}`,
+                'Fellowship Meetings': `${m.fellowshipMeetings}/${m.totalFellowshipMeetings}`,
+                'Projects': `${m.projects}/${m.totalProjects}`,
+                'Overall %': `${m.overallPercentage}%`,
+                'Status': isGoodStanding(m) ? 'Good Standing' : 'Needs Attention'
+            }));
+
+            downloadCSV(data, `RCUG_Attendance_Summary_${currentPeriod}.csv`);
+        }
+
+        function downloadCSV(data, filename) {
             if (data.length === 0) {
-                grid.innerHTML = '<div class="no-results">No members found</div>';
+                alert('No data to export');
                 return;
             }
             
-            grid.innerHTML = data.map(d => currentTab === 'members' ? renderMemberCard(d, period) : renderGuestCard(d)).join('');
+            const headers = Object.keys(data[0]);
+            const csv = [
+                headers.join(','),
+                ...data.map(row => headers.map(h => `"${row[h]}"`).join(','))
+            ].join('\n');
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
         }
-        
-        function renderMemberCard(m, period) {
-            const cardClass = m.isTerminated ? 'terminated' : m.status === 'No Data' ? 'nodata' : m.status === 'Good Standing' ? 'good' : 'notgood';
-            const statusClass = m.isTerminated ? 'status-terminated' : m.status === 'No Data' ? 'status-nodata' : m.status === 'Good Standing' ? 'status-good' : 'status-notgood';
-            
-            let meet = m.h1.meet, proj = m.h1.proj, totalMeet = TOTALS.h1.meetings, totalProj = TOTALS.h1.projects;
-            if (period === 'q1') { meet = m.q1.meet; proj = m.q1.proj; totalMeet = TOTALS.q1.meetings; totalProj = TOTALS.q1.projects; }
-            else if (period === 'q2') { meet = m.q2.meet; proj = m.q2.proj; totalMeet = TOTALS.q2.meetings; totalProj = TOTALS.q2.projects; }
-            else if (period === 'elections') { meet = m.elections.meet; totalMeet = TOTALS.elections.meetings; }
-            
-            const meetPct = (meet / totalMeet) * 100;
-            const projPct = (proj / totalProj) * 100;
-            
-            return \`
-                <div class="member-card \${cardClass}" onclick="showModal('\${m.fullName.replace(/'/g, "\\\\'")}', 'member', '\${period}')">
-                    <div class="card-header">
-                        <div>
-                            <div class="member-name">\${m.fullName}\${m.isNewDec7 ? '<span class="badge badge-new">NEW</span>' : ''}\${m.isBoardMember ? '<span class="badge badge-board">BOARD</span>' : ''}\${m.isTerminated ? '<span class="badge badge-terminated">TERMINATED</span>' : ''}\${!m.hasData && !m.isTerminated ? '<span class="badge badge-nodata">NO DATA</span>' : ''}</div>
-                            <div class="member-tag">\${m.incomingPosition || 'Member'}</div>
-                        </div>
-                        <span class="status-badge \${statusClass}">\${m.status}</span>
-                    </div>
-                    <div class="progress-row">
-                        <span class="progress-label">Meetings</span>
-                        <div class="progress-bar"><div class="progress-fill meetings" style="width: \${Math.min(meetPct, 100)}%"></div></div>
-                        <span class="progress-value">\${meet}/\${totalMeet} (\${meetPct.toFixed(0)}%)</span>
-                    </div>
-                    \${period !== 'elections' ? \`
-                    <div class="progress-row">
-                        <span class="progress-label">Projects</span>
-                        <div class="progress-bar"><div class="progress-fill projects" style="width: \${Math.min(projPct, 100)}%"></div></div>
-                        <span class="progress-value">\${proj}/\${totalProj} (\${projPct.toFixed(0)}%)</span>
-                    </div>\` : ''}
-                    \${m.isBoardMember ? \`
-                    <div class="progress-row">
-                        <span class="progress-label">Board</span>
-                        <div class="progress-bar"><div class="progress-fill board" style="width: \${(m.boardMeetings.total / TOTALS.boardAnnual) * 100}%"></div></div>
-                        <span class="progress-value">\${m.boardMeetings.total}/\${TOTALS.boardAnnual}</span>
-                    </div>\` : ''}
-                </div>
-            \`;
-        }
-        
-        function renderGuestCard(g) {
-            const eligible = g.meetPct >= 60 && g.projPct >= 50;
-            const statusClass = !g.ug ? 'status-notug' : !g.info ? 'status-noattendance' : !g.committee ? 'status-infosession' : eligible ? 'status-eligible' : 'status-needswork';
-            const statusText = !g.ug ? 'Not UG' : !g.info ? 'Needs Info Session' : !g.committee ? 'Attended Info' : eligible ? 'Eligible' : 'Needs More Attendance';
-            
-            return \`
-                <div class="member-card guest \${eligible ? 'eligible' : ''}" onclick="showModal('\${g.fullName.replace(/'/g, "\\\\'")}', 'guest', '')">
-                    <div class="card-header">
-                        <div>
-                            <div class="member-name">\${g.fullName}</div>
-                            <div class="member-tag">Guest</div>
-                        </div>
-                        <span class="status-badge \${statusClass}">\${statusText}</span>
-                    </div>
-                    <div class="progress-row">
-                        <span class="progress-label">Meetings</span>
-                        <div class="progress-bar"><div class="progress-fill meetings" style="width: \${Math.min(g.meetPct, 100)}%"></div></div>
-                        <span class="progress-value">\${g.meetings}/\${TOTALS.h1.meetings} (\${g.meetPct.toFixed(0)}%)</span>
-                    </div>
-                    <div class="progress-row">
-                        <span class="progress-label">Projects</span>
-                        <div class="progress-bar"><div class="progress-fill projects" style="width: \${Math.min(g.projPct, 100)}%"></div></div>
-                        <span class="progress-value">\${g.projects}/\${TOTALS.h1.projects} (\${g.projPct.toFixed(0)}%)</span>
-                    </div>
-                    <div class="checklist">
-                        <div class="check-item \${g.ug ? 'check-done' : 'check-pending'}">\${g.ug ? '✓' : '✗'} UG Student/Alumni</div>
-                        <div class="check-item \${g.info ? 'check-done' : 'check-pending'}">\${g.info ? '✓' : '✗'} Info Session</div>
-                        <div class="check-item \${g.committee ? 'check-done' : 'check-pending'}">\${g.committee ? '✓' : '✗'} Committee Approval</div>
-                        <div class="check-item \${eligible ? 'check-done' : 'check-pending'}">\${eligible ? '✓' : '✗'} Attendance Met (60%+ & 50%+)</div>
-                    </div>
-                </div>
-            \`;
-        }
-        
-        function showModal(name, type, period) {
-            const modal = document.getElementById('modal');
-            const modalBody = document.getElementById('modalBody');
-            
-            if (type === 'member') {
-                const m = members.find(mem => mem.fullName === name);
-                if (!m) return;
-                
-                let meet = m.h1.meet, proj = m.h1.proj, totalMeet = TOTALS.h1.meetings, totalProj = TOTALS.h1.projects;
-                if (period === 'q1') { meet = m.q1.meet; proj = m.q1.proj; totalMeet = TOTALS.q1.meetings; totalProj = TOTALS.q1.projects; }
-                else if (period === 'q2') { meet = m.q2.meet; proj = m.q2.proj; totalMeet = TOTALS.q2.meetings; totalProj = TOTALS.q2.projects; }
-                else if (period === 'elections') { meet = m.elections.meet; totalMeet = TOTALS.elections.meetings; }
-                
-                const meetPct = (meet / totalMeet) * 100;
-                const projPct = period !== 'elections' ? (proj / totalProj) * 100 : 0;
-                
-                const armsArray = m.armsOfService ? m.armsOfService.split(',').map(s => s.trim()).filter(s => s) : [];
-                
-                modalBody.innerHTML = \`
-                    <div class="modal-header">
-                        <div class="modal-name">\${m.fullName}</div>
-                        <div class="modal-email">\${m.email}</div>
-                        \${m.contact ? \`<div class="modal-contact">📞 \${m.contact}</div>\` : ''}
-                    </div>
-                    
-                    <div class="detail-section">
-                        <div class="detail-title">📊 Attendance Summary</div>
-                        <div class="detail-grid">
-                            <div class="detail-card">
-                                <h4>Meetings</h4>
-                                <div class="progress-row">
-                                    <div class="progress-bar"><div class="progress-fill meetings" style="width: \${Math.min(meetPct, 100)}%"></div></div>
-                                    <span class="progress-value">\${meet}/\${totalMeet} (\${meetPct.toFixed(0)}%)</span>
-                                </div>
-                            </div>
-                            \${period !== 'elections' ? \`
-                            <div class="detail-card">
-                                <h4>Projects</h4>
-                                <div class="progress-row">
-                                    <div class="progress-bar"><div class="progress-fill projects" style="width: \${Math.min(projPct, 100)}%"></div></div>
-                                    <span class="progress-value">\${proj}/\${totalProj} (\${projPct.toFixed(0)}%)</span>
-                                </div>
-                            </div>\` : ''}
-                            \${m.isBoardMember ? \`
-                            <div class="detail-card">
-                                <h4>Board Meetings</h4>
-                                <div class="progress-row">
-                                    <div class="progress-bar"><div class="progress-fill board" style="width: \${(m.boardMeetings.total / TOTALS.boardAnnual) * 100}%"></div></div>
-                                    <span class="progress-value">\${m.boardMeetings.total}/\${TOTALS.boardAnnual}</span>
-                                </div>
-                            </div>\` : ''}
-                        </div>
-                    </div>
-                    
-                    <div class="detail-section">
-                        <div class="detail-title">👤 Personal Information</div>
-                        <div class="detail-grid">
-                            \${m.dateOfBirth ? \`
-                            <div class="detail-card">
-                                <h4>Birthday & Age</h4>
-                                <div class="detail-text">🎂 \${formatDate(m.dateOfBirth)}\${m.age ? \` (\${m.age} years old)\` : ''}</div>
-                            </div>\` : ''}
-                            \${m.dateInducted ? \`
-                            <div class="detail-card">
-                                <h4>Date Inducted</h4>
-                                <div class="detail-text">📅 \${formatDate(m.dateInducted)}</div>
-                            </div>\` : ''}
-                            \${m.education ? \`
-                            <div class="detail-card full-width">
-                                <h4>Education</h4>
-                                <div class="detail-text">🎓 \${m.education}</div>
-                            </div>\` : ''}
-                            \${m.profession ? \`
-                            <div class="detail-card full-width">
-                                <h4>Current Profession</h4>
-                                <div class="detail-text">💼 \${m.profession}</div>
-                            </div>\` : ''}
-                        </div>
-                    </div>
-                    
-                    \${m.talentsHobbies ? \`
-                    <div class="detail-section">
-                        <div class="detail-title">✨ Talents & Hobbies</div>
-                        <div class="detail-card full-width">
-                            <div class="detail-text">\${m.talentsHobbies}</div>
-                        </div>
-                    </div>\` : ''}
-                    
-                    \${armsArray.length > 0 ? \`
-                    <div class="detail-section">
-                        <div class="detail-title">🎯 Arms of Service Interests</div>
-                        <div class="detail-card full-width">
-                            \${armsArray.map(arm => \`<span class="info-chip">\${arm}</span>\`).join('')}
-                        </div>
-                    </div>\` : ''}
-                    
-                    \${m.incomingPosition && m.incomingPosition !== 'NIL' && m.incomingPosition !== 'Member' ? \`
-                    <div class="detail-section">
-                        <div class="detail-title">👔 Incoming Position (2025-2026)</div>
-                        <div class="detail-card full-width">
-                            <div class="detail-text"><strong>\${m.incomingPosition}</strong></div>
-                        </div>
-                    </div>\` : ''}
-                    
-                    \${m.positionsHeld && m.positionsHeld !== 'NIL' ? \`
-                    <div class="detail-section">
-                        <div class="detail-title">📜 Past Positions</div>
-                        <div class="detail-card full-width">
-                            <div class="detail-text" style="white-space: pre-line;">\${m.positionsHeld}</div>
-                        </div>
-                    </div>\` : ''}
-                    
-                    \${m.attendedMeetings.length > 0 ? \`
-                    <div class="attended-section">
-                        <h4>✓ Meetings Attended (\${m.attendedMeetings.length})</h4>
-                        <ul class="attended-list">
-                            \${m.attendedMeetings.map(mtg => \`<li>\${mtg.display} - \${mtg.type}</li>\`).join('')}
-                        </ul>
-                    </div>\` : ''}
-                    
-                    \${m.missedMeetings.length > 0 ? \`
-                    <div class="missed-section">
-                        <h4>✗ Meetings Missed (\${m.missedMeetings.length})</h4>
-                        <ul class="missed-list">
-                            \${m.missedMeetings.map(mtg => \`<li>\${mtg.display} - \${mtg.type}</li>\`).join('')}
-                        </ul>
-                    </div>\` : ''}
-                \`;
-            } else {
-                const g = guests.find(gst => gst.fullName === name);
-                if (!g) return;
-                
-                const eligible = g.meetPct >= 60 && g.projPct >= 50;
-                
-                modalBody.innerHTML = \`
-                    <div class="modal-header">
-                        <div class="modal-name">\${g.fullName}</div>
-                        <div class="member-tag">Guest / Prospective Member</div>
-                    </div>
-                    
-                    <div class="detail-section">
-                        <div class="detail-title">📊 Progress to Membership</div>
-                        <ul class="requirements-list">
-                            <li><span>UG Student/Alumni</span><span class="\${g.ug ? 'req-met' : 'req-notmet'}">\${g.ug ? '✓ Yes' : '✗ No'}</span></li>
-                            <li><span>Attended Info Session</span><span class="\${g.info ? 'req-met' : 'req-notmet'}">\${g.info ? '✓ Yes' : '✗ No'}</span></li>
-                            <li><span>Committee Approval</span><span class="\${g.committee ? 'req-met' : 'req-notmet'}">\${g.committee ? '✓ Yes' : '✗ No'}</span></li>
-                            <li><span>Meeting Attendance (60%)</span><span class="\${g.meetPct >= 60 ? 'req-met' : 'req-notmet'}">\${g.meetings}/\${TOTALS.h1.meetings} (\${g.meetPct.toFixed(0)}%)</span></li>
-                            <li><span>Project Participation (50%)</span><span class="\${g.projPct >= 50 ? 'req-met' : 'req-notmet'}">\${g.projects}/\${TOTALS.h1.projects} (\${g.projPct.toFixed(0)}%)</span></li>
-                        </ul>
-                    </div>
-                    
-                    <div class="detail-section">
-                        <div class="detail-title">🎯 Eligibility Status</div>
-                        <div class="detail-card full-width">
-                            <div class="detail-text" style="font-size: 1.1rem; font-weight: 600; color: \${eligible ? '#27ae60' : '#e74c3c'};">
-                                \${eligible ? '✓ Eligible for Membership' : '✗ Not Yet Eligible'}
-                            </div>
-                            \${!eligible ? \`<div class="detail-text" style="margin-top: 10px; color: #bdc3c7;">
-                                \${g.meetPct < 60 ? \`Need \${Math.ceil((60 * TOTALS.h1.meetings / 100) - g.meetings)} more meetings. \` : ''}
-                                \${g.projPct < 50 ? \`Need \${Math.ceil((50 * TOTALS.h1.projects / 100) - g.projects)} more projects.\` : ''}
-                            </div>\` : ''}
-                        </div>
-                    </div>
-                \`;
-            }
-            
-            modal.style.display = 'flex';
-        }
-        
-        function closeModal() {
-            document.getElementById('modal').style.display = 'none';
-        }
-        
-        document.getElementById('searchInput').addEventListener('input', render);
-        document.getElementById('statusFilter').addEventListener('change', render);
-        document.getElementById('periodFilter').addEventListener('change', render);
-        
-        window.onclick = function(event) {
-            const modal = document.getElementById('modal');
-            if (event.target === modal) closeModal();
-        };
-        
-        loadAllData();
+
+        // ============================================
+        // INITIALIZE ON LOAD
+        // ============================================
+        document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
-</html>`;
+</html>
