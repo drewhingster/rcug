@@ -218,8 +218,8 @@ const HTML_CONTENT = `<!DOCTYPE html>
             border-radius: 10px;
             margin: 20px 0;
             font-family: monospace;
-            font-size: 0.85rem;
-            max-height: 300px;
+            font-size: 0.8rem;
+            max-height: 200px;
             overflow-y: auto;
         }
         .debug-panel h4 { color: #f39c12; margin-bottom: 10px; }
@@ -286,9 +286,8 @@ const HTML_CONTENT = `<!DOCTYPE html>
             <p style="font-size: 0.9rem; margin-top: 10px;">Last Updated: <span id="lastUpdated">Loading...</span></p>
         </header>
 
-        <!-- Debug Panel - Can be hidden in production -->
         <div class="debug-panel" id="debugPanel">
-            <h4>🔧 Debug Console (Data Loading Status)</h4>
+            <h4>🔧 Debug Console</h4>
             <div id="debugLog"></div>
         </div>
 
@@ -333,7 +332,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             </div>
         </div>
 
-        <div class="stats-bar" id="statsBar">
+        <div class="stats-bar">
             <div class="stat-card"><h3 id="totalMembers">-</h3><p>Total Members</p></div>
             <div class="stat-card"><h3 id="goodStanding">-</h3><p>Good Standing</p></div>
             <div class="stat-card"><h3 id="needsAttention">-</h3><p>Needs Attention</p></div>
@@ -379,7 +378,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 <span class="filter-pill" data-month="11">Nov</span>
                 <span class="filter-pill" data-month="12">Dec</span>
             </div>
-            <div class="celebration-list" id="birthdayList"><div class="loading">Loading birthdays...</div></div>
+            <div class="celebration-list" id="birthdayList"><div class="loading">Loading...</div></div>
         </div>
 
         <div class="tab-content" id="anniversaries-tab">
@@ -402,7 +401,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 <span class="filter-pill" data-month="11">Nov</span>
                 <span class="filter-pill" data-month="12">Dec</span>
             </div>
-            <div class="celebration-list" id="anniversaryList"><div class="loading">Loading anniversaries...</div></div>
+            <div class="celebration-list" id="anniversaryList"><div class="loading">Loading...</div></div>
         </div>
 
         <div class="tab-content" id="summary-tab">
@@ -410,7 +409,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 <span>📊 Attendance Summary Table</span>
                 <button class="export-btn" onclick="exportSummary()">📤 Export CSV</button>
             </div>
-            <table class="summary-table" id="summaryTable">
+            <table class="summary-table">
                 <thead>
                     <tr>
                         <th>Name</th>
@@ -418,7 +417,6 @@ const HTML_CONTENT = `<!DOCTYPE html>
                         <th>Business</th>
                         <th>Fellowship</th>
                         <th>Projects</th>
-                        <th>Committee Mtgs</th>
                         <th>Overall %</th>
                         <th>Status</th>
                     </tr>
@@ -432,20 +430,14 @@ const HTML_CONTENT = `<!DOCTYPE html>
         // ============================================
         // CONFIGURATION
         // ============================================
-        // IMPORTANT: This is your ORIGINAL spreadsheet ID (not the published one)
-        // Find it in your Google Sheet URL: https://docs.google.com/spreadsheets/d/THIS_PART_HERE/edit
-        const SPREADSHEET_ID = '1j0uOvYCe-DvOsPjxyb7RfLm7ddeB_LL99cJKeO40RaM';
-        
-        // GIDs for each sheet tab
-        const MEMBER_REGISTRY_GID = '1821690489';
-        const ALL_ATTENDANCE_GID = '1315129184';
-        const GUEST_TRACKING_GID = '1284804990';
-        const MEETING_SCHEDULE_GID = '1708148096';
+        var SPREADSHEET_ID = '1j0uOvYCe-DvOsPjxyb7RfLm7ddeB_LL99cJKeO40RaM';
+        var MEMBER_REGISTRY_GID = '1821690489';
+        var ALL_ATTENDANCE_GID = '1315129184';
+        var GUEST_TRACKING_GID = '1284804990';
+        var MEETING_SCHEDULE_GID = '1708148096';
 
-        // ============================================
-        // COMMITTEE ASSIGNMENTS
-        // ============================================
-        const COMMITTEE_ASSIGNMENTS = {
+        // Committee assignments
+        var COMMITTEE_ASSIGNMENTS = {
             'Adanna Edwards': ['Finance', 'Professional Development'],
             'Andrew Hing': ['Club Service', 'Finance', 'Membership'],
             'Asif Khan': ['Finance', 'International Service', 'Public Image'],
@@ -473,101 +465,84 @@ const HTML_CONTENT = `<!DOCTYPE html>
             'Tamara Bascom': ['Club Service', 'Community Service', 'International Service']
         };
 
-        const BOARD_MEMBERS = [
-            'Jemima Stephenson', 'Darin Hall', 'Ganesh Anand', 'Adanna Edwards',
-            'Yushina Ramlall', 'Nandita Singh', 'Kadeem Bowen', 'Vishal Roopnarine', 'Andrew Hing'
-        ];
+        var BOARD_MEMBERS = ['Jemima Stephenson', 'Darin Hall', 'Ganesh Anand', 'Adanna Edwards',
+            'Yushina Ramlall', 'Nandita Singh', 'Kadeem Bowen', 'Vishal Roopnarine', 'Andrew Hing'];
 
-        // ============================================
-        // GLOBAL DATA
-        // ============================================
-        let memberData = [];
-        let attendanceData = [];
-        let guestData = [];
-        let meetingSchedule = [];
-        let currentPeriod = 'Q2';
-        let currentBirthdayMonth = 'all';
-        let currentAnniversaryMonth = 'all';
+        // Global data
+        var memberData = [];
+        var attendanceData = [];
+        var guestData = [];
+        var currentPeriod = 'Q2';
+        var currentBirthdayMonth = 'all';
+        var currentAnniversaryMonth = 'all';
 
-        // ============================================
-        // DEBUG LOGGING
-        // ============================================
-        function debugLog(message, type = 'info') {
-            const debugDiv = document.getElementById('debugLog');
-            const time = new Date().toLocaleTimeString();
-            debugDiv.innerHTML += '<div class="' + type + '">[' + time + '] ' + message + '</div>';
-            console.log('[' + type.toUpperCase() + ']', message);
+        // Debug logging
+        function debugLog(msg, type) {
+            var div = document.getElementById('debugLog');
+            var time = new Date().toLocaleTimeString();
+            div.innerHTML += '<div class="' + (type || 'info') + '">[' + time + '] ' + msg + '</div>';
+            console.log('[' + type + ']', msg);
         }
 
         // ============================================
-        // DATA FETCHING - Multiple methods
+        // CSV PARSING - SMART HEADER DETECTION
         // ============================================
-        async function fetchSheetData(gid, sheetName) {
-            debugLog('Fetching ' + sheetName + ' (GID: ' + gid + ')...', 'info');
+        function parseCSVWithHeaders(text, headerKeyword) {
+            var lines = text.split('\\n');
+            var headerRowIndex = -1;
+            var headers = [];
             
-            // Method 1: Try CSV export URL
-            const csvUrl = 'https://docs.google.com/spreadsheets/d/' + SPREADSHEET_ID + '/export?format=csv&gid=' + gid;
+            // Find the header row by looking for the keyword
+            for (var i = 0; i < Math.min(lines.length, 10); i++) {
+                var line = lines[i].toLowerCase();
+                if (line.indexOf(headerKeyword.toLowerCase()) !== -1) {
+                    headerRowIndex = i;
+                    break;
+                }
+            }
             
-            try {
-                debugLog('Trying URL: ' + csvUrl, 'info');
-                const response = await fetch(csvUrl);
-                
-                if (!response.ok) {
-                    throw new Error('HTTP ' + response.status + ': ' + response.statusText);
-                }
-                
-                const text = await response.text();
-                debugLog(sheetName + ' fetched! Size: ' + text.length + ' bytes', 'success');
-                
-                // Check if we got an error page instead of data
-                if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
-                    throw new Error('Got HTML instead of CSV - sheet may not be public');
-                }
-                
-                const data = parseCSV(text);
-                debugLog(sheetName + ' parsed: ' + data.length + ' rows', 'success');
-                return data;
-                
-            } catch (error) {
-                debugLog('Error fetching ' + sheetName + ': ' + error.message, 'error');
+            if (headerRowIndex === -1) {
+                debugLog('Could not find header row with: ' + headerKeyword, 'error');
                 return [];
             }
-        }
-
-        function parseCSV(text) {
-            const lines = text.split('\\n');
-            if (lines.length < 2) return [];
             
-            const headers = parseCSVLine(lines[0]);
-            debugLog('Headers found: ' + headers.slice(0, 5).join(', ') + '...', 'info');
+            debugLog('Found header row at line ' + headerRowIndex, 'success');
             
-            const data = [];
-            for (let i = 1; i < lines.length; i++) {
+            // Parse the header row
+            headers = parseCSVLine(lines[headerRowIndex]);
+            debugLog('Headers: ' + headers.slice(0, 5).join(', ') + '...', 'info');
+            
+            // Parse data rows
+            var data = [];
+            for (var i = headerRowIndex + 1; i < lines.length; i++) {
                 if (lines[i].trim() === '') continue;
-                const values = parseCSVLine(lines[i]);
-                const obj = {};
-                headers.forEach((header, index) => {
-                    obj[header.trim()] = values[index] ? values[index].trim() : '';
-                });
+                var values = parseCSVLine(lines[i]);
+                var obj = {};
+                for (var j = 0; j < headers.length; j++) {
+                    var h = headers[j] ? headers[j].trim() : '';
+                    obj[h] = values[j] ? values[j].trim() : '';
+                }
                 data.push(obj);
             }
+            
+            debugLog('Parsed ' + data.length + ' data rows', 'success');
             return data;
         }
 
         function parseCSVLine(line) {
-            const result = [];
-            let current = '';
-            let inQuotes = false;
+            var result = [];
+            var current = '';
+            var inQuotes = false;
             
-            for (let i = 0; i < line.length; i++) {
-                const char = line[i];
-                if (char === '"') {
+            for (var i = 0; i < line.length; i++) {
+                var c = line.charAt(i);
+                if (c === '"') {
                     inQuotes = !inQuotes;
-                } else if (char === ',' && !inQuotes) {
+                } else if (c === ',' && !inQuotes) {
                     result.push(current);
                     current = '';
                 } else {
-                    current += char;
+                    current += c;
                 }
             }
             result.push(current);
@@ -575,306 +550,177 @@ const HTML_CONTENT = `<!DOCTYPE html>
         }
 
         // ============================================
+        // DATA FETCHING
+        // ============================================
+        function fetchSheet(gid, name, headerKeyword) {
+            var url = 'https://docs.google.com/spreadsheets/d/' + SPREADSHEET_ID + '/export?format=csv&gid=' + gid;
+            debugLog('Fetching ' + name + '...', 'info');
+            
+            return fetch(url)
+                .then(function(response) {
+                    if (!response.ok) throw new Error('HTTP ' + response.status);
+                    return response.text();
+                })
+                .then(function(text) {
+                    debugLog(name + ' fetched: ' + text.length + ' bytes', 'success');
+                    return parseCSVWithHeaders(text, headerKeyword);
+                })
+                .catch(function(error) {
+                    debugLog('Error fetching ' + name + ': ' + error.message, 'error');
+                    return [];
+                });
+        }
+
+        // ============================================
         // INITIALIZATION
         // ============================================
-        async function init() {
+        function init() {
             document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
-            debugLog('Dashboard initializing...', 'info');
-            debugLog('Spreadsheet ID: ' + SPREADSHEET_ID, 'info');
+            debugLog('Starting dashboard...', 'info');
             
-            try {
-                // Fetch all data
-                const [members, attendance, guests, schedule] = await Promise.all([
-                    fetchSheetData(MEMBER_REGISTRY_GID, 'Member Registry'),
-                    fetchSheetData(ALL_ATTENDANCE_GID, 'All Attendance'),
-                    fetchSheetData(GUEST_TRACKING_GID, 'Guest Tracking'),
-                    fetchSheetData(MEETING_SCHEDULE_GID, 'Meeting Schedule')
-                ]);
+            Promise.all([
+                fetchSheet(MEMBER_REGISTRY_GID, 'Member Registry', 'Full Name'),
+                fetchSheet(ALL_ATTENDANCE_GID, 'All Attendance', 'Full Name'),
+                fetchSheet(GUEST_TRACKING_GID, 'Guest Tracking', 'First Name')
+            ]).then(function(results) {
+                var members = results[0];
+                var attendance = results[1];
+                var guests = results[2];
                 
-                memberData = processMembers(members);
-                attendanceData = attendance;
-                guestData = processGuests(guests);
-                meetingSchedule = schedule;
+                // Process members
+                memberData = members.filter(function(row) {
+                    var name = row['Full Name'] || '';
+                    return name && name !== 'Full Name' && name.indexOf('MEMBER') === -1;
+                }).map(function(row, idx) {
+                    return {
+                        id: idx + 1,
+                        name: row['Full Name'] || '',
+                        firstName: row['First Name'] || '',
+                        lastName: row['Last Name'] || '',
+                        email: row['Email'] || '',
+                        contact: row['Contact'] || '',
+                        dob: row['Date of Birth'] || '',
+                        inducted: row['Date Inducted'] || '',
+                        status: row['Status'] || 'Active',
+                        category: row['Category'] || 'Rotaractor'
+                    };
+                });
                 
                 debugLog('Processed ' + memberData.length + ' members', 'success');
+                
+                // Store attendance
+                attendanceData = attendance.filter(function(row) {
+                    var name = row['Full Name'] || '';
+                    return name && name !== 'Full Name' && name.indexOf('ALL ATTENDANCE') === -1;
+                });
+                
+                debugLog('Processed ' + attendanceData.length + ' attendance records', 'success');
+                
+                // Process guests
+                guestData = guests.filter(function(row) {
+                    var name = row['First Name'] || '';
+                    return name && name !== 'First Name' && name.indexOf('GUEST') === -1;
+                }).map(function(row) {
+                    return {
+                        name: (row['First Name'] || '') + ' ' + (row['Last Name'] || ''),
+                        firstName: row['First Name'] || '',
+                        lastName: row['Last Name'] || '',
+                        status: row['Status'] || 'NO ATTENDANCE'
+                    };
+                });
+                
                 debugLog('Processed ' + guestData.length + ' guests', 'success');
                 
-                if (memberData.length === 0) {
-                    debugLog('WARNING: No member data loaded! Check sheet sharing settings.', 'error');
-                }
-                
-                calculateMemberAttendance();
+                // Calculate attendance and render
+                calculateAttendance();
                 setupEventListeners();
                 renderAll();
                 
                 debugLog('Dashboard ready!', 'success');
-                
-            } catch (error) {
-                debugLog('FATAL ERROR: ' + error.message, 'error');
-                document.getElementById('memberCards').innerHTML = '<div class="error-message">Failed to load data. Check the debug panel above for details.</div>';
-            }
+            }).catch(function(error) {
+                debugLog('Fatal error: ' + error.message, 'error');
+            });
         }
 
         // ============================================
-        // DATA PROCESSING
+        // ATTENDANCE CALCULATION
         // ============================================
-        function processMembers(rawData) {
-            // Find the actual header row by looking for 'Full Name' column
-            var headerRowIndex = -1;
-            var headers = [];
-            
-            for (var i = 0; i < Math.min(rawData.length, 10); i++) {
-                var row = rawData[i];
-                var keys = Object.keys(row);
-                for (var j = 0; j < keys.length; j++) {
-                    var val = String(row[keys[j]] || '').toLowerCase();
-                    if (val === 'full name' || val.includes('full name')) {
-                        headerRowIndex = i;
-                        break;
-                    }
-                }
-                if (headerRowIndex >= 0) break;
-            }
-            
-            debugLog('Member header row found at index: ' + headerRowIndex, 'info');
-            
-            // If we found a header row, re-parse from that point
-            if (headerRowIndex >= 0) {
-                var headerRow = rawData[headerRowIndex];
-                var keys = Object.keys(headerRow);
-                // The values in this row ARE the headers
-                headers = keys.map(function(k) { return String(headerRow[k] || '').trim(); });
-                debugLog('Actual member headers: ' + headers.slice(0, 5).join(', '), 'info');
-                
-                // Now map subsequent rows using these headers
-                var result = [];
-                for (var i = headerRowIndex + 1; i < rawData.length; i++) {
-                    var row = rawData[i];
-                    var keys = Object.keys(row);
-                    var obj = {};
-                    keys.forEach(function(k, idx) {
-                        if (headers[idx]) {
-                            obj[headers[idx]] = row[k];
-                        }
-                    });
-                    
-                    var name = obj['Full Name'] || '';
-                    if (name && name !== 'Full Name' && !name.includes('MEMBER REGISTRY')) {
-                        result.push({
-                            id: result.length + 1,
-                            name: name,
-                            firstName: obj['First Name'] || '',
-                            lastName: obj['Last Name'] || '',
-                            email: obj['Email'] || obj['Email Address'] || '',
-                            contact: obj['Contact'] || obj['Contact Number'] || '',
-                            dob: obj['Date of Birth'] || obj['DOB'] || '',
-                            inducted: obj['Date Inducted'] || obj['Inducted'] || '',
-                            status: obj['Status'] || 'Active',
-                            category: obj['Category'] || 'Rotaractor'
-                        });
-                    }
-                }
-                debugLog('Processed ' + result.length + ' members after re-parsing', 'success');
-                return result;
-            }
-            
-            // Fallback to original method
-            return rawData
-                .filter(function(row) {
-                    var name = row['Full Name'] || row['full name'] || row['Name'] || '';
-                    return name && name !== 'Full Name' && !name.includes('MEMBER REGISTRY');
-                })
-                .map(function(row, index) {
-                    return {
-                        id: index + 1,
-                        name: row['Full Name'] || row['full name'] || row['Name'] || '',
-                        firstName: row['First Name'] || row['first name'] || '',
-                        lastName: row['Last Name'] || row['last name'] || '',
-                        email: row['Email'] || row['Email Address'] || row['email'] || '',
-                        contact: row['Contact'] || row['Contact Number'] || row['contact'] || '',
-                        dob: row['Date of Birth'] || row['DOB'] || row['dob'] || '',
-                        inducted: row['Date Inducted'] || row['Inducted'] || row['inducted'] || '',
-                        status: row['Status'] || row['status'] || 'Active',
-                        category: row['Category'] || row['category'] || 'Rotaractor'
-                    };
-                });
-        }
-
-        function processGuests(rawData) {
-            // Find the actual header row by looking for 'First Name' column
-            var headerRowIndex = -1;
-            
-            for (var i = 0; i < Math.min(rawData.length, 10); i++) {
-                var row = rawData[i];
-                var keys = Object.keys(row);
-                for (var j = 0; j < keys.length; j++) {
-                    var val = String(row[keys[j]] || '').toLowerCase();
-                    if (val === 'first name') {
-                        headerRowIndex = i;
-                        break;
-                    }
-                }
-                if (headerRowIndex >= 0) break;
-            }
-            
-            debugLog('Guest header row found at index: ' + headerRowIndex, 'info');
-            
-            if (headerRowIndex >= 0) {
-                var headerRow = rawData[headerRowIndex];
-                var keys = Object.keys(headerRow);
-                var headers = keys.map(function(k) { return String(headerRow[k] || '').trim(); });
-                debugLog('Actual guest headers: ' + headers.slice(0, 5).join(', '), 'info');
-                
-                var result = [];
-                for (var i = headerRowIndex + 1; i < rawData.length; i++) {
-                    var row = rawData[i];
-                    var rowKeys = Object.keys(row);
-                    var obj = {};
-                    rowKeys.forEach(function(k, idx) {
-                        if (headers[idx]) {
-                            obj[headers[idx]] = row[k];
-                        }
-                    });
-                    
-                    var firstName = obj['First Name'] || '';
-                    if (firstName && firstName !== 'First Name' && !firstName.includes('CLUB REGISTER') && !firstName.includes('GUEST')) {
-                        var meetingPct = obj['% Total Meetings \\n(Req. 60%)'] || obj['% Total Meetings'] || obj['Meeting %'] || '0';
-                        var projectPct = obj['% Total Projects \\n(Req. 50%)'] || obj['% Total Projects'] || obj['Project %'] || '0';
-                        
-                        // Handle percentage values (might be decimal like 0.6 or whole number like 60)
-                        meetingPct = parseFloat(meetingPct) || 0;
-                        if (meetingPct <= 1) meetingPct = meetingPct * 100;
-                        
-                        projectPct = parseFloat(projectPct) || 0;
-                        if (projectPct <= 1) projectPct = projectPct * 100;
-                        
-                        result.push({
-                            name: (firstName + ' ' + (obj['Last Name'] || '')).trim(),
-                            firstName: firstName,
-                            lastName: obj['Last Name'] || '',
-                            status: obj['Status'] || 'NO ATTENDANCE',
-                            meetingAttendance: parseInt(obj['Total out of Six (Meetings)']) || parseInt(obj['Meeting Count']) || 0,
-                            totalMeetings: 6,
-                            meetingPercentage: meetingPct,
-                            projectAttendance: parseInt(obj['Total out of Five (Projects)']) || parseInt(obj['Project Count']) || 0,
-                            totalProjects: 5,
-                            projectPercentage: projectPct,
-                            infoSession: obj['Information Session'] === 'TRUE' || obj['Information Session'] === 'true' || obj['Information Session'] === true,
-                            committeeMeeting: obj['Committee Meeting'] === 'TRUE' || obj['Committee Meeting'] === 'true' || obj['Committee Meeting'] === true,
-                            ugStudent: obj['Current or Graduate of UG'] === 'TRUE' || obj['Current or Graduate of UG'] === 'true' || obj['Current or Graduate of UG'] === true
-                        });
-                    }
-                }
-                debugLog('Processed ' + result.length + ' guests after re-parsing', 'success');
-                return result;
-            }
-            
-            // Fallback
-            return rawData
-                .filter(function(row) {
-                    var name = row['First Name'] || row['first name'] || '';
-                    return name && name !== 'First Name' && !name.includes('CLUB REGISTER');
-                })
-                .map(function(row) {
-                    return {
-                        name: ((row['First Name'] || '') + ' ' + (row['Last Name'] || '')).trim(),
-                        firstName: row['First Name'] || '',
-                        lastName: row['Last Name'] || '',
-                        status: row['Status'] || 'NO ATTENDANCE',
-                        meetingAttendance: parseInt(row['Total out of Six (Meetings)']) || 0,
-                        totalMeetings: 6,
-                        meetingPercentage: (parseFloat(row['% Total Meetings \\n(Req. 60%)']) || 0) * 100,
-                        projectAttendance: parseInt(row['Total out of Five (Projects)']) || 0,
-                        totalProjects: 5,
-                        projectPercentage: (parseFloat(row['% Total Projects \\n(Req. 50%)']) || 0) * 100,
-                        infoSession: row['Information Session'] === 'TRUE' || row['Information Session'] === true,
-                        committeeMeeting: row['Committee Meeting'] === 'TRUE' || row['Committee Meeting'] === true,
-                        ugStudent: row['Current or Graduate of UG'] === 'TRUE' || row['Current or Graduate of UG'] === true
-                    };
-                });
-        }
-
-        function calculateMemberAttendance() {
-            const period = currentPeriod;
-            
-            memberData.forEach(member => {
-                const memberAttendance = attendanceData.filter(a => {
-                    const fullName = a['Full Name'] || ((a['First Name'] || '') + ' ' + (a['Last Name'] || '')).trim();
-                    const matchesName = fullName.toLowerCase() === member.name.toLowerCase();
-                    const q = a['Quarter'] || '';
-                    const matchesPeriod = period === 'Annual' || q === period || 
-                                          (period === 'H1' && (q === 'Q1' || q === 'Q2')) ||
-                                          (period === 'H2' && (q === 'Q3' || q === 'Q4'));
-                    return matchesName && matchesPeriod;
+        function calculateAttendance() {
+            memberData.forEach(function(member) {
+                var records = attendanceData.filter(function(a) {
+                    var name = a['Full Name'] || '';
+                    var quarter = a['Quarter'] || '';
+                    var matchName = name.toLowerCase() === member.name.toLowerCase();
+                    var matchPeriod = currentPeriod === 'Annual' || quarter === currentPeriod ||
+                        (currentPeriod === 'H1' && (quarter === 'Q1' || quarter === 'Q2')) ||
+                        (currentPeriod === 'H2' && (quarter === 'Q3' || quarter === 'Q4'));
+                    return matchName && matchPeriod;
                 });
                 
-                const mt = 'Meeting Type';
-                member.businessMeetings = memberAttendance.filter(a => a[mt] === 'Business Meeting').length;
-                member.fellowshipMeetings = memberAttendance.filter(a => a[mt] === 'Fellowship Meeting').length;
-                member.projects = memberAttendance.filter(a => a[mt] === 'Project').length;
-                member.committeeMeetings = memberAttendance.filter(a => a[mt] && a[mt].includes('Committee Meeting')).length;
+                member.businessMeetings = records.filter(function(a) { return a['Meeting Type'] === 'Business Meeting'; }).length;
+                member.fellowshipMeetings = records.filter(function(a) { return a['Meeting Type'] === 'Fellowship Meeting'; }).length;
+                member.projects = records.filter(function(a) { return a['Meeting Type'] === 'Project'; }).length;
                 
                 member.totalBusinessMeetings = 2;
                 member.totalFellowshipMeetings = 2;
                 member.totalProjects = 5;
                 
-                const totalRegular = member.totalBusinessMeetings + member.totalFellowshipMeetings;
-                const attendedRegular = member.businessMeetings + member.fellowshipMeetings;
-                member.overallPercentage = totalRegular > 0 ? Math.round((attendedRegular / totalRegular) * 100) : 0;
+                var total = member.totalBusinessMeetings + member.totalFellowshipMeetings;
+                var attended = member.businessMeetings + member.fellowshipMeetings;
+                member.overallPercentage = total > 0 ? Math.round((attended / total) * 100) : 0;
             });
         }
 
         // ============================================
         // UTILITY FUNCTIONS
         // ============================================
-        function calculateAge(dateString) {
-            if (!dateString) return '-';
-            const today = new Date();
-            const birthDate = new Date(dateString);
-            if (isNaN(birthDate.getTime())) return '-';
-            let age = today.getFullYear() - birthDate.getFullYear();
-            const monthDiff = today.getMonth() - birthDate.getMonth();
-            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
+        function calculateAge(dob) {
+            if (!dob) return '-';
+            var d = new Date(dob);
+            if (isNaN(d)) return '-';
+            var today = new Date();
+            var age = today.getFullYear() - d.getFullYear();
+            if (today.getMonth() < d.getMonth() || (today.getMonth() === d.getMonth() && today.getDate() < d.getDate())) age--;
             return age;
         }
 
-        function calculateYearsInducted(dateString) {
-            if (!dateString) return 0;
-            const today = new Date();
-            const inductedDate = new Date(dateString);
-            if (isNaN(inductedDate.getTime())) return 0;
-            let years = today.getFullYear() - inductedDate.getFullYear();
-            const monthDiff = today.getMonth() - inductedDate.getMonth();
-            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < inductedDate.getDate())) years--;
+        function calculateYears(date) {
+            if (!date) return 0;
+            var d = new Date(date);
+            if (isNaN(d)) return 0;
+            var today = new Date();
+            var years = today.getFullYear() - d.getFullYear();
+            if (today.getMonth() < d.getMonth() || (today.getMonth() === d.getMonth() && today.getDate() < d.getDate())) years--;
             return Math.max(0, years);
         }
 
-        function isNewMember(inductedDate) {
-            if (!inductedDate) return false;
-            const sixMonthsAgo = new Date();
+        function isNewMember(inducted) {
+            if (!inducted) return false;
+            var d = new Date(inducted);
+            if (isNaN(d)) return false;
+            var sixMonthsAgo = new Date();
             sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-            const inducted = new Date(inductedDate);
-            return !isNaN(inducted.getTime()) && inducted > sixMonthsAgo;
+            return d > sixMonthsAgo;
         }
 
-        function getProgressClass(percentage) {
-            if (percentage >= 60) return 'good';
-            if (percentage >= 40) return 'warning';
+        function getProgressClass(pct) {
+            if (pct >= 60) return 'good';
+            if (pct >= 40) return 'warning';
             return 'danger';
         }
 
-        function isGoodStanding(member) {
-            const isTerminated = member.status && member.status.toLowerCase().includes('terminated');
-            return member.overallPercentage >= 60 && !isTerminated;
+        function isGoodStanding(m) {
+            var term = m.status && m.status.toLowerCase().indexOf('terminated') !== -1;
+            return m.overallPercentage >= 60 && !term;
         }
 
         function getCommittees(name) { return COMMITTEE_ASSIGNMENTS[name] || []; }
-        function isOnBoard(name) { return BOARD_MEMBERS.includes(name); }
+        function isOnBoard(name) { return BOARD_MEMBERS.indexOf(name) !== -1; }
 
-        function formatFullDate(dateString) {
-            if (!dateString) return '-';
-            const date = new Date(dateString);
-            if (isNaN(date.getTime())) return '-';
+        function formatDate(d) {
+            if (!d) return '-';
+            var date = new Date(d);
+            if (isNaN(date)) return '-';
             return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
         }
 
@@ -882,41 +728,40 @@ const HTML_CONTENT = `<!DOCTYPE html>
         // EVENT LISTENERS
         // ============================================
         function setupEventListeners() {
-            document.getElementById('periodSelect').addEventListener('change', function(e) {
+            document.getElementById('periodSelect').onchange = function(e) {
                 currentPeriod = e.target.value;
-                calculateMemberAttendance();
+                calculateAttendance();
                 renderAll();
-            });
-
-            document.getElementById('statusFilter').addEventListener('change', renderMembers);
-            document.getElementById('committeeFilter').addEventListener('change', renderMembers);
-            document.getElementById('searchInput').addEventListener('input', renderMembers);
+            };
+            document.getElementById('statusFilter').onchange = renderMembers;
+            document.getElementById('committeeFilter').onchange = renderMembers;
+            document.getElementById('searchInput').oninput = renderMembers;
 
             document.querySelectorAll('.tab-btn').forEach(function(btn) {
-                btn.addEventListener('click', function(e) {
+                btn.onclick = function(e) {
                     document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
                     document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
                     e.target.classList.add('active');
                     document.getElementById(e.target.dataset.tab + '-tab').classList.add('active');
-                });
+                };
             });
 
-            document.querySelectorAll('#birthdayMonthFilter .filter-pill').forEach(function(pill) {
-                pill.addEventListener('click', function(e) {
-                    document.querySelectorAll('#birthdayMonthFilter .filter-pill').forEach(function(p) { p.classList.remove('active'); });
+            document.querySelectorAll('#birthdayMonthFilter .filter-pill').forEach(function(p) {
+                p.onclick = function(e) {
+                    document.querySelectorAll('#birthdayMonthFilter .filter-pill').forEach(function(x) { x.classList.remove('active'); });
                     e.target.classList.add('active');
                     currentBirthdayMonth = e.target.dataset.month;
                     renderBirthdays();
-                });
+                };
             });
 
-            document.querySelectorAll('#anniversaryMonthFilter .filter-pill').forEach(function(pill) {
-                pill.addEventListener('click', function(e) {
-                    document.querySelectorAll('#anniversaryMonthFilter .filter-pill').forEach(function(p) { p.classList.remove('active'); });
+            document.querySelectorAll('#anniversaryMonthFilter .filter-pill').forEach(function(p) {
+                p.onclick = function(e) {
+                    document.querySelectorAll('#anniversaryMonthFilter .filter-pill').forEach(function(x) { x.classList.remove('active'); });
                     e.target.classList.add('active');
                     currentAnniversaryMonth = e.target.dataset.month;
                     renderAnniversaries();
-                });
+                };
             });
         }
 
@@ -929,96 +774,89 @@ const HTML_CONTENT = `<!DOCTYPE html>
             renderGuests();
             renderBirthdays();
             renderAnniversaries();
-            renderSummaryTable();
+            renderSummary();
         }
 
         function updateStats() {
-            var activeMembers = memberData.filter(function(m) { return !m.status.toLowerCase().includes('terminated'); });
-            var goodStandingCount = activeMembers.filter(function(m) { return isGoodStanding(m); }).length;
-            var newMembersCount = activeMembers.filter(function(m) { return isNewMember(m.inducted); }).length;
-            var activeGuestsCount = guestData.filter(function(g) { return g.status !== 'NO ATTENDANCE'; }).length;
+            var active = memberData.filter(function(m) { return !m.status.toLowerCase().includes('terminated'); });
+            var good = active.filter(function(m) { return isGoodStanding(m); }).length;
+            var newM = active.filter(function(m) { return isNewMember(m.inducted); }).length;
+            var activeG = guestData.filter(function(g) { return g.status !== 'NO ATTENDANCE'; }).length;
 
-            document.getElementById('totalMembers').textContent = activeMembers.length;
-            document.getElementById('goodStanding').textContent = goodStandingCount;
-            document.getElementById('needsAttention').textContent = activeMembers.length - goodStandingCount;
-            document.getElementById('activeGuests').textContent = activeGuestsCount;
-            document.getElementById('newMembers').textContent = newMembersCount;
+            document.getElementById('totalMembers').textContent = active.length;
+            document.getElementById('goodStanding').textContent = good;
+            document.getElementById('needsAttention').textContent = active.length - good;
+            document.getElementById('activeGuests').textContent = activeG;
+            document.getElementById('newMembers').textContent = newM;
         }
 
         function renderMembers() {
             var container = document.getElementById('memberCards');
-            var statusFilter = document.getElementById('statusFilter').value;
-            var committeeFilter = document.getElementById('committeeFilter').value;
-            var searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            var statusF = document.getElementById('statusFilter').value;
+            var commF = document.getElementById('committeeFilter').value;
+            var search = document.getElementById('searchInput').value.toLowerCase();
 
             var filtered = memberData.filter(function(m) {
-                if (searchTerm && m.name.toLowerCase().indexOf(searchTerm) === -1) return false;
-                var isTerminated = m.status && m.status.toLowerCase().indexOf('terminated') !== -1;
-                if (statusFilter === 'good' && (!isGoodStanding(m) || isTerminated)) return false;
-                if (statusFilter === 'not-good' && (isGoodStanding(m) || isTerminated)) return false;
-                if (statusFilter === 'new' && !isNewMember(m.inducted)) return false;
-                if (committeeFilter !== 'all') {
-                    var committees = getCommittees(m.name);
-                    if (committees.indexOf(committeeFilter) === -1) return false;
-                }
+                if (search && m.name.toLowerCase().indexOf(search) === -1) return false;
+                var term = m.status && m.status.toLowerCase().indexOf('terminated') !== -1;
+                if (statusF === 'good' && (!isGoodStanding(m) || term)) return false;
+                if (statusF === 'not-good' && (isGoodStanding(m) || term)) return false;
+                if (statusF === 'new' && !isNewMember(m.inducted)) return false;
+                if (commF !== 'all' && getCommittees(m.name).indexOf(commF) === -1) return false;
                 return true;
             });
 
             if (filtered.length === 0) {
-                container.innerHTML = '<div class="no-data">No members match the current filters</div>';
+                container.innerHTML = '<div class="no-data">No members match filters</div>';
                 return;
             }
 
             var html = '';
-            filtered.forEach(function(member) {
-                var committees = getCommittees(member.name);
-                var isNew = isNewMember(member.inducted);
-                var onBoard = isOnBoard(member.name);
-                var yearsInducted = calculateYearsInducted(member.inducted);
-                var age = calculateAge(member.dob);
-                var isTerminated = member.status && member.status.toLowerCase().indexOf('terminated') !== -1;
-                var goodStanding = isGoodStanding(member);
+            filtered.forEach(function(m) {
+                var comms = getCommittees(m.name);
+                var isNew = isNewMember(m.inducted);
+                var board = isOnBoard(m.name);
+                var years = calculateYears(m.inducted);
+                var age = calculateAge(m.dob);
+                var term = m.status && m.status.toLowerCase().indexOf('terminated') !== -1;
+                var good = isGoodStanding(m);
 
-                html += '<div class="member-card ' + (isTerminated ? '' : (goodStanding ? 'good-standing' : 'not-good-standing')) + '">';
-                html += '<div class="card-header">';
-                html += '<div class="member-name">' + member.name + '</div>';
+                html += '<div class="member-card ' + (term ? '' : (good ? 'good-standing' : 'not-good-standing')) + '">';
+                html += '<div class="card-header"><div class="member-name">' + m.name + '</div>';
                 html += '<div class="member-badges">';
-                html += isTerminated ? '<span class="badge badge-terminated">Terminated</span>' : '<span class="badge badge-member">Member</span>';
-                if (isNew && !isTerminated) html += '<span class="badge badge-new">New</span>';
-                if (onBoard && !isTerminated) html += '<span class="badge badge-board">Board</span>';
+                html += term ? '<span class="badge badge-terminated">Terminated</span>' : '<span class="badge badge-member">Member</span>';
+                if (isNew && !term) html += '<span class="badge badge-new">New</span>';
+                if (board && !term) html += '<span class="badge badge-board">Board</span>';
                 html += '</div></div>';
                 
                 html += '<div class="member-details">';
-                html += '<p>📧 ' + (member.email || '-') + '</p>';
-                html += '<p>📱 ' + (member.contact || '-') + '</p>';
-                html += '<p>🎂 Age: ' + age + ' | 🗓️ Member for ' + yearsInducted + ' year' + (yearsInducted !== 1 ? 's' : '') + '</p>';
-                html += '<p>📅 Inducted: ' + formatFullDate(member.inducted) + '</p>';
-                if (committees.length > 0) {
+                html += '<p>📧 ' + (m.email || '-') + '</p>';
+                html += '<p>📱 ' + (m.contact || '-') + '</p>';
+                html += '<p>🎂 Age: ' + age + ' | 🗓️ Member for ' + years + ' year' + (years !== 1 ? 's' : '') + '</p>';
+                html += '<p>📅 Inducted: ' + formatDate(m.inducted) + '</p>';
+                if (comms.length > 0) {
                     html += '<p>🏷️ ';
-                    committees.forEach(function(c) { html += '<span class="committee-tag">' + c + '</span>'; });
+                    comms.forEach(function(c) { html += '<span class="committee-tag">' + c + '</span>'; });
                     html += '</p>';
                 }
                 html += '</div>';
 
-                if (!isTerminated) {
+                if (!term) {
                     html += '<div class="progress-section">';
-                    html += '<div class="progress-item"><div class="progress-label"><span>Business Meetings</span><span>' + member.businessMeetings + '/' + member.totalBusinessMeetings + '</span></div>';
-                    html += '<div class="progress-bar"><div class="progress-fill ' + getProgressClass(member.businessMeetings/member.totalBusinessMeetings*100) + '" style="width: ' + Math.min(member.businessMeetings/member.totalBusinessMeetings*100, 100) + '%"></div></div></div>';
+                    html += '<div class="progress-item"><div class="progress-label"><span>Business</span><span>' + m.businessMeetings + '/' + m.totalBusinessMeetings + '</span></div>';
+                    html += '<div class="progress-bar"><div class="progress-fill ' + getProgressClass(m.businessMeetings/m.totalBusinessMeetings*100) + '" style="width:' + Math.min(m.businessMeetings/m.totalBusinessMeetings*100,100) + '%"></div></div></div>';
                     
-                    html += '<div class="progress-item"><div class="progress-label"><span>Fellowship Meetings</span><span>' + member.fellowshipMeetings + '/' + member.totalFellowshipMeetings + '</span></div>';
-                    html += '<div class="progress-bar"><div class="progress-fill ' + getProgressClass(member.fellowshipMeetings/member.totalFellowshipMeetings*100) + '" style="width: ' + Math.min(member.fellowshipMeetings/member.totalFellowshipMeetings*100, 100) + '%"></div></div></div>';
+                    html += '<div class="progress-item"><div class="progress-label"><span>Fellowship</span><span>' + m.fellowshipMeetings + '/' + m.totalFellowshipMeetings + '</span></div>';
+                    html += '<div class="progress-bar"><div class="progress-fill ' + getProgressClass(m.fellowshipMeetings/m.totalFellowshipMeetings*100) + '" style="width:' + Math.min(m.fellowshipMeetings/m.totalFellowshipMeetings*100,100) + '%"></div></div></div>';
                     
-                    html += '<div class="progress-item"><div class="progress-label"><span>Projects</span><span>' + member.projects + '/' + member.totalProjects + '</span></div>';
-                    html += '<div class="progress-bar"><div class="progress-fill ' + getProgressClass(member.projects/member.totalProjects*100) + '" style="width: ' + Math.min(member.projects/member.totalProjects*100, 100) + '%"></div></div></div>';
+                    html += '<div class="progress-item"><div class="progress-label"><span>Projects</span><span>' + m.projects + '/' + m.totalProjects + '</span></div>';
+                    html += '<div class="progress-bar"><div class="progress-fill ' + getProgressClass(m.projects/m.totalProjects*100) + '" style="width:' + Math.min(m.projects/m.totalProjects*100,100) + '%"></div></div></div>';
                     
-                    html += '<div class="progress-item"><div class="progress-label"><span>Committee Meetings</span><span>' + member.committeeMeetings + '</span></div>';
-                    html += '<div class="progress-bar"><div class="progress-fill good" style="width: ' + (member.committeeMeetings > 0 ? '100' : '0') + '%"></div></div></div>';
-                    
-                    html += '<div class="progress-item"><div class="progress-label"><span>Overall Attendance (60% req.)</span><span>' + member.overallPercentage + '%</span></div>';
-                    html += '<div class="progress-bar"><div class="progress-fill ' + getProgressClass(member.overallPercentage) + '" style="width: ' + Math.min(member.overallPercentage, 100) + '%"></div></div></div>';
+                    html += '<div class="progress-item"><div class="progress-label"><span>Overall (60% req)</span><span>' + m.overallPercentage + '%</span></div>';
+                    html += '<div class="progress-bar"><div class="progress-fill ' + getProgressClass(m.overallPercentage) + '" style="width:' + Math.min(m.overallPercentage,100) + '%"></div></div></div>';
                     html += '</div>';
                 } else {
-                    html += '<p style="color: #7f8c8d; text-align: center; padding: 20px;">Member terminated - attendance not tracked</p>';
+                    html += '<p style="color:#7f8c8d;text-align:center;padding:20px">Terminated</p>';
                 }
                 html += '</div>';
             });
@@ -1028,13 +866,10 @@ const HTML_CONTENT = `<!DOCTYPE html>
 
         function renderGuests() {
             var container = document.getElementById('guestCards');
-            var searchTerm = document.getElementById('searchInput').value.toLowerCase();
             var memberNames = memberData.map(function(m) { return m.name.toLowerCase(); });
             
             var filtered = guestData.filter(function(g) {
-                if (searchTerm && g.name.toLowerCase().indexOf(searchTerm) === -1) return false;
-                if (memberNames.indexOf(g.name.toLowerCase()) !== -1) return false;
-                return true;
+                return memberNames.indexOf(g.name.toLowerCase().trim()) === -1;
             });
 
             if (filtered.length === 0) {
@@ -1043,38 +878,17 @@ const HTML_CONTENT = `<!DOCTYPE html>
             }
 
             var html = '';
-            filtered.forEach(function(guest) {
-                var committees = getCommittees(guest.name);
-                var meetingMet = guest.meetingPercentage >= 60;
-                var projectMet = guest.projectPercentage >= 50;
-
+            filtered.forEach(function(g) {
+                var comms = getCommittees(g.name.trim());
                 html += '<div class="member-card guest-card">';
-                html += '<div class="card-header"><div class="member-name">' + guest.name + '</div>';
+                html += '<div class="card-header"><div class="member-name">' + g.name + '</div>';
                 html += '<div class="member-badges"><span class="badge badge-guest">Guest</span></div></div>';
-                
-                html += '<div class="member-details">';
-                html += '<p>📊 Status: <strong>' + guest.status + '</strong></p>';
-                html += guest.ugStudent ? '<p>🎓 UG Student/Graduate: ✅</p>' : '<p>🎓 UG Student/Graduate: ❌</p>';
-                if (committees.length > 0) {
+                html += '<div class="member-details"><p>📊 Status: <strong>' + g.status + '</strong></p>';
+                if (comms.length > 0) {
                     html += '<p>🏷️ ';
-                    committees.forEach(function(c) { html += '<span class="committee-tag">' + c + '</span>'; });
+                    comms.forEach(function(c) { html += '<span class="committee-tag">' + c + '</span>'; });
                     html += '</p>';
                 }
-                html += '</div>';
-                
-                html += '<div class="progress-section">';
-                html += '<div class="progress-item"><div class="progress-label"><span>Meeting Attendance (60% req.)</span><span>' + guest.meetingAttendance + '/' + guest.totalMeetings + ' (' + Math.round(guest.meetingPercentage) + '%)</span></div>';
-                html += '<div class="progress-bar"><div class="progress-fill ' + getProgressClass(guest.meetingPercentage) + '" style="width: ' + Math.min(guest.meetingPercentage, 100) + '%"></div></div></div>';
-                
-                html += '<div class="progress-item"><div class="progress-label"><span>Project Participation (50% req.)</span><span>' + guest.projectAttendance + '/' + guest.totalProjects + ' (' + Math.round(guest.projectPercentage) + '%)</span></div>';
-                html += '<div class="progress-bar"><div class="progress-fill ' + getProgressClass(guest.projectPercentage * 1.2) + '" style="width: ' + Math.min(guest.projectPercentage * 2, 100) + '%"></div></div></div>';
-                html += '</div>';
-                
-                html += '<div class="checklist">';
-                html += '<div class="checklist-item ' + (guest.infoSession ? 'completed' : 'pending') + '"><span class="checklist-icon">' + (guest.infoSession ? '✅' : '⬜') + '</span><span>Information Session</span></div>';
-                html += '<div class="checklist-item ' + (guest.committeeMeeting ? 'completed' : 'pending') + '"><span class="checklist-icon">' + (guest.committeeMeeting ? '✅' : '⬜') + '</span><span>Committee Meeting</span></div>';
-                html += '<div class="checklist-item ' + (meetingMet ? 'completed' : 'pending') + '"><span class="checklist-icon">' + (meetingMet ? '✅' : '⬜') + '</span><span>60% Meetings</span></div>';
-                html += '<div class="checklist-item ' + (projectMet ? 'completed' : 'pending') + '"><span class="checklist-icon">' + (projectMet ? '✅' : '⬜') + '</span><span>50% Projects</span></div>';
                 html += '</div></div>';
             });
             
@@ -1083,83 +897,79 @@ const HTML_CONTENT = `<!DOCTYPE html>
 
         function renderBirthdays() {
             var container = document.getElementById('birthdayList');
-            var monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
+            var months = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            
             var filtered = memberData.filter(function(m) {
-                if (!m.dob) return false;
-                var isTerminated = m.status && m.status.toLowerCase().indexOf('terminated') !== -1;
-                if (isTerminated) return false;
-                var date = new Date(m.dob);
-                if (isNaN(date.getTime())) return false;
+                if (!m.dob || m.status.toLowerCase().indexOf('terminated') !== -1) return false;
+                var d = new Date(m.dob);
+                if (isNaN(d)) return false;
                 if (currentBirthdayMonth === 'all') return true;
-                return date.getMonth() + 1 === parseInt(currentBirthdayMonth);
-            });
-
-            filtered.sort(function(a, b) {
-                var dateA = new Date(a.dob);
-                var dateB = new Date(b.dob);
-                if (dateA.getMonth() !== dateB.getMonth()) return dateA.getMonth() - dateB.getMonth();
-                return dateA.getDate() - dateB.getDate();
+                return (d.getMonth() + 1) === parseInt(currentBirthdayMonth);
+            }).sort(function(a,b) {
+                var da = new Date(a.dob), db = new Date(b.dob);
+                return da.getMonth() - db.getMonth() || da.getDate() - db.getDate();
             });
 
             if (filtered.length === 0) {
-                container.innerHTML = '<div class="no-data">No birthdays found for this filter</div>';
+                container.innerHTML = '<div class="no-data">No birthdays</div>';
                 return;
             }
 
             var html = '';
-            filtered.forEach(function(member) {
-                var dob = new Date(member.dob);
-                var age = calculateAge(member.dob);
-                html += '<div class="celebration-card"><div class="celebration-icon">🎂</div><div class="celebration-info"><h4>' + member.name + '</h4><p>' + monthNames[dob.getMonth() + 1] + ' ' + dob.getDate() + ' • Turning ' + (age + 1) + '</p></div></div>';
+            filtered.forEach(function(m) {
+                var d = new Date(m.dob);
+                html += '<div class="celebration-card"><div class="celebration-icon">🎂</div>';
+                html += '<div class="celebration-info"><h4>' + m.name + '</h4>';
+                html += '<p>' + months[d.getMonth()+1] + ' ' + d.getDate() + ' • Turning ' + (calculateAge(m.dob)+1) + '</p></div></div>';
             });
             container.innerHTML = html;
         }
 
         function renderAnniversaries() {
             var container = document.getElementById('anniversaryList');
-            var monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
+            var months = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            
             var filtered = memberData.filter(function(m) {
-                if (!m.inducted) return false;
-                var isTerminated = m.status && m.status.toLowerCase().indexOf('terminated') !== -1;
-                if (isTerminated) return false;
-                var date = new Date(m.inducted);
-                if (isNaN(date.getTime())) return false;
+                if (!m.inducted || m.status.toLowerCase().indexOf('terminated') !== -1) return false;
+                var d = new Date(m.inducted);
+                if (isNaN(d)) return false;
                 if (currentAnniversaryMonth === 'all') return true;
-                return date.getMonth() + 1 === parseInt(currentAnniversaryMonth);
-            });
-
-            filtered.sort(function(a, b) {
-                var dateA = new Date(a.inducted);
-                var dateB = new Date(b.inducted);
-                if (dateA.getMonth() !== dateB.getMonth()) return dateA.getMonth() - dateB.getMonth();
-                return dateA.getDate() - dateB.getDate();
+                return (d.getMonth() + 1) === parseInt(currentAnniversaryMonth);
+            }).sort(function(a,b) {
+                var da = new Date(a.inducted), db = new Date(b.inducted);
+                return da.getMonth() - db.getMonth() || da.getDate() - db.getDate();
             });
 
             if (filtered.length === 0) {
-                container.innerHTML = '<div class="no-data">No induction anniversaries found for this filter</div>';
+                container.innerHTML = '<div class="no-data">No anniversaries</div>';
                 return;
             }
 
             var html = '';
-            filtered.forEach(function(member) {
-                var inducted = new Date(member.inducted);
-                var years = calculateYearsInducted(member.inducted);
-                html += '<div class="celebration-card"><div class="celebration-icon">🎉</div><div class="celebration-info"><h4>' + member.name + '</h4><p>' + monthNames[inducted.getMonth() + 1] + ' ' + inducted.getDate() + ' • ' + (years + 1) + ' year' + (years !== 0 ? 's' : '') + ' in RCUG</p></div></div>';
+            filtered.forEach(function(m) {
+                var d = new Date(m.inducted);
+                var yrs = calculateYears(m.inducted) + 1;
+                html += '<div class="celebration-card"><div class="celebration-icon">🎉</div>';
+                html += '<div class="celebration-info"><h4>' + m.name + '</h4>';
+                html += '<p>' + months[d.getMonth()+1] + ' ' + d.getDate() + ' • ' + yrs + ' year' + (yrs!==1?'s':'') + '</p></div></div>';
             });
             container.innerHTML = html;
         }
 
-        function renderSummaryTable() {
+        function renderSummary() {
             var tbody = document.getElementById('summaryBody');
-            var activeMembers = memberData.filter(function(m) { return !(m.status && m.status.toLowerCase().indexOf('terminated') !== -1); });
+            var active = memberData.filter(function(m) { return m.status.toLowerCase().indexOf('terminated') === -1; });
 
             var html = '';
-            activeMembers.forEach(function(member) {
-                var committees = getCommittees(member.name);
-                var goodStanding = isGoodStanding(member);
-                html += '<tr><td>' + member.name + '</td><td>' + (committees.join(', ') || '-') + '</td><td>' + member.businessMeetings + '/' + member.totalBusinessMeetings + '</td><td>' + member.fellowshipMeetings + '/' + member.totalFellowshipMeetings + '</td><td>' + member.projects + '/' + member.totalProjects + '</td><td>' + (member.committeeMeetings || 0) + '</td><td>' + member.overallPercentage + '%</td><td style="color: ' + (goodStanding ? '#27ae60' : '#e74c3c') + '">' + (goodStanding ? '✅ Good' : '⚠️ Check') + '</td></tr>';
+            active.forEach(function(m) {
+                var comms = getCommittees(m.name);
+                var good = isGoodStanding(m);
+                html += '<tr><td>' + m.name + '</td><td>' + (comms.join(', ') || '-') + '</td>';
+                html += '<td>' + m.businessMeetings + '/' + m.totalBusinessMeetings + '</td>';
+                html += '<td>' + m.fellowshipMeetings + '/' + m.totalFellowshipMeetings + '</td>';
+                html += '<td>' + m.projects + '/' + m.totalProjects + '</td>';
+                html += '<td>' + m.overallPercentage + '%</td>';
+                html += '<td style="color:' + (good ? '#27ae60' : '#e74c3c') + '">' + (good ? '✅' : '⚠️') + '</td></tr>';
             });
             tbody.innerHTML = html;
         }
@@ -1168,58 +978,46 @@ const HTML_CONTENT = `<!DOCTYPE html>
         // EXPORT FUNCTIONS
         // ============================================
         function exportBirthdays() {
-            var monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-            var data = memberData
-                .filter(function(m) { return m.dob && !(m.status && m.status.toLowerCase().indexOf('terminated') !== -1); })
-                .filter(function(m) { var d = new Date(m.dob); return !isNaN(d.getTime()) && (currentBirthdayMonth === 'all' || d.getMonth() + 1 === parseInt(currentBirthdayMonth)); })
-                .map(function(m) { var dob = new Date(m.dob); return { Name: m.name, Month: monthNames[dob.getMonth() + 1], Day: dob.getDate(), 'Turning Age': calculateAge(m.dob) + 1 }; });
-            downloadCSV(data, 'RCUG_Birthdays.csv');
+            var data = memberData.filter(function(m) { return m.dob && m.status.toLowerCase().indexOf('terminated') === -1; });
+            var csv = 'Name,Month,Day,Age\\n';
+            data.forEach(function(m) {
+                var d = new Date(m.dob);
+                if (!isNaN(d)) csv += m.name + ',' + (d.getMonth()+1) + ',' + d.getDate() + ',' + (calculateAge(m.dob)+1) + '\\n';
+            });
+            downloadCSV(csv, 'RCUG_Birthdays.csv');
         }
 
         function exportAnniversaries() {
-            var monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-            var data = memberData
-                .filter(function(m) { return m.inducted && !(m.status && m.status.toLowerCase().indexOf('terminated') !== -1); })
-                .filter(function(m) { var d = new Date(m.inducted); return !isNaN(d.getTime()) && (currentAnniversaryMonth === 'all' || d.getMonth() + 1 === parseInt(currentAnniversaryMonth)); })
-                .map(function(m) { var inducted = new Date(m.inducted); return { Name: m.name, Month: monthNames[inducted.getMonth() + 1], Day: inducted.getDate(), 'Years in RCUG': calculateYearsInducted(m.inducted) + 1 }; });
-            downloadCSV(data, 'RCUG_Anniversaries.csv');
+            var data = memberData.filter(function(m) { return m.inducted && m.status.toLowerCase().indexOf('terminated') === -1; });
+            var csv = 'Name,Month,Day,Years\\n';
+            data.forEach(function(m) {
+                var d = new Date(m.inducted);
+                if (!isNaN(d)) csv += m.name + ',' + (d.getMonth()+1) + ',' + d.getDate() + ',' + (calculateYears(m.inducted)+1) + '\\n';
+            });
+            downloadCSV(csv, 'RCUG_Anniversaries.csv');
         }
 
         function exportSummary() {
-            var activeMembers = memberData.filter(function(m) { return !(m.status && m.status.toLowerCase().indexOf('terminated') !== -1); });
-            var data = activeMembers.map(function(m) {
-                return {
-                    Name: m.name, Committee: getCommittees(m.name).join('; ') || '-',
-                    'Business Meetings': m.businessMeetings + '/' + m.totalBusinessMeetings,
-                    'Fellowship Meetings': m.fellowshipMeetings + '/' + m.totalFellowshipMeetings,
-                    Projects: m.projects + '/' + m.totalProjects,
-                    'Committee Meetings': m.committeeMeetings || 0,
-                    'Overall %': m.overallPercentage + '%',
-                    Status: isGoodStanding(m) ? 'Good Standing' : 'Needs Attention'
-                };
+            var csv = 'Name,Committee,Business,Fellowship,Projects,Overall,Status\\n';
+            memberData.filter(function(m) { return m.status.toLowerCase().indexOf('terminated') === -1; }).forEach(function(m) {
+                csv += m.name + ',"' + getCommittees(m.name).join('; ') + '",' + m.businessMeetings + '/' + m.totalBusinessMeetings + ',';
+                csv += m.fellowshipMeetings + '/' + m.totalFellowshipMeetings + ',' + m.projects + '/' + m.totalProjects + ',';
+                csv += m.overallPercentage + '%,' + (isGoodStanding(m) ? 'Good' : 'Check') + '\\n';
             });
-            downloadCSV(data, 'RCUG_Attendance_Summary_' + currentPeriod + '.csv');
+            downloadCSV(csv, 'RCUG_Summary.csv');
         }
 
-        function downloadCSV(data, filename) {
-            if (data.length === 0) { alert('No data to export'); return; }
-            var headers = Object.keys(data[0]);
-            var csv = headers.join(',') + '\\n';
-            data.forEach(function(row) {
-                csv += headers.map(function(h) { return '"' + row[h] + '"'; }).join(',') + '\\n';
-            });
+        function downloadCSV(csv, filename) {
             var blob = new Blob([csv], { type: 'text/csv' });
             var url = URL.createObjectURL(blob);
             var a = document.createElement('a');
             a.href = url;
             a.download = filename;
-            document.body.appendChild(a);
             a.click();
-            document.body.removeChild(a);
             URL.revokeObjectURL(url);
         }
 
-        // Initialize on page load
+        // Initialize
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
