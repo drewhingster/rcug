@@ -619,46 +619,179 @@ const HTML_CONTENT = `<!DOCTYPE html>
         // DATA PROCESSING
         // ============================================
         function processMembers(rawData) {
+            // Find the actual header row by looking for 'Full Name' column
+            var headerRowIndex = -1;
+            var headers = [];
+            
+            for (var i = 0; i < Math.min(rawData.length, 10); i++) {
+                var row = rawData[i];
+                var keys = Object.keys(row);
+                for (var j = 0; j < keys.length; j++) {
+                    var val = String(row[keys[j]] || '').toLowerCase();
+                    if (val === 'full name' || val.includes('full name')) {
+                        headerRowIndex = i;
+                        break;
+                    }
+                }
+                if (headerRowIndex >= 0) break;
+            }
+            
+            debugLog('Member header row found at index: ' + headerRowIndex, 'info');
+            
+            // If we found a header row, re-parse from that point
+            if (headerRowIndex >= 0) {
+                var headerRow = rawData[headerRowIndex];
+                var keys = Object.keys(headerRow);
+                // The values in this row ARE the headers
+                headers = keys.map(function(k) { return String(headerRow[k] || '').trim(); });
+                debugLog('Actual member headers: ' + headers.slice(0, 5).join(', '), 'info');
+                
+                // Now map subsequent rows using these headers
+                var result = [];
+                for (var i = headerRowIndex + 1; i < rawData.length; i++) {
+                    var row = rawData[i];
+                    var keys = Object.keys(row);
+                    var obj = {};
+                    keys.forEach(function(k, idx) {
+                        if (headers[idx]) {
+                            obj[headers[idx]] = row[k];
+                        }
+                    });
+                    
+                    var name = obj['Full Name'] || '';
+                    if (name && name !== 'Full Name' && !name.includes('MEMBER REGISTRY')) {
+                        result.push({
+                            id: result.length + 1,
+                            name: name,
+                            firstName: obj['First Name'] || '',
+                            lastName: obj['Last Name'] || '',
+                            email: obj['Email'] || obj['Email Address'] || '',
+                            contact: obj['Contact'] || obj['Contact Number'] || '',
+                            dob: obj['Date of Birth'] || obj['DOB'] || '',
+                            inducted: obj['Date Inducted'] || obj['Inducted'] || '',
+                            status: obj['Status'] || 'Active',
+                            category: obj['Category'] || 'Rotaractor'
+                        });
+                    }
+                }
+                debugLog('Processed ' + result.length + ' members after re-parsing', 'success');
+                return result;
+            }
+            
+            // Fallback to original method
             return rawData
-                .filter(row => {
-                    const name = row['Full Name'] || row['full name'] || row['Name'] || '';
+                .filter(function(row) {
+                    var name = row['Full Name'] || row['full name'] || row['Name'] || '';
                     return name && name !== 'Full Name' && !name.includes('MEMBER REGISTRY');
                 })
-                .map((row, index) => ({
-                    id: index + 1,
-                    name: row['Full Name'] || row['full name'] || row['Name'] || '',
-                    firstName: row['First Name'] || row['first name'] || '',
-                    lastName: row['Last Name'] || row['last name'] || '',
-                    email: row['Email'] || row['Email Address'] || row['email'] || '',
-                    contact: row['Contact'] || row['Contact Number'] || row['contact'] || '',
-                    dob: row['Date of Birth'] || row['DOB'] || row['dob'] || '',
-                    inducted: row['Date Inducted'] || row['Inducted'] || row['inducted'] || '',
-                    status: row['Status'] || row['status'] || 'Active',
-                    category: row['Category'] || row['category'] || 'Rotaractor'
-                }));
+                .map(function(row, index) {
+                    return {
+                        id: index + 1,
+                        name: row['Full Name'] || row['full name'] || row['Name'] || '',
+                        firstName: row['First Name'] || row['first name'] || '',
+                        lastName: row['Last Name'] || row['last name'] || '',
+                        email: row['Email'] || row['Email Address'] || row['email'] || '',
+                        contact: row['Contact'] || row['Contact Number'] || row['contact'] || '',
+                        dob: row['Date of Birth'] || row['DOB'] || row['dob'] || '',
+                        inducted: row['Date Inducted'] || row['Inducted'] || row['inducted'] || '',
+                        status: row['Status'] || row['status'] || 'Active',
+                        category: row['Category'] || row['category'] || 'Rotaractor'
+                    };
+                });
         }
 
         function processGuests(rawData) {
+            // Find the actual header row by looking for 'First Name' column
+            var headerRowIndex = -1;
+            
+            for (var i = 0; i < Math.min(rawData.length, 10); i++) {
+                var row = rawData[i];
+                var keys = Object.keys(row);
+                for (var j = 0; j < keys.length; j++) {
+                    var val = String(row[keys[j]] || '').toLowerCase();
+                    if (val === 'first name') {
+                        headerRowIndex = i;
+                        break;
+                    }
+                }
+                if (headerRowIndex >= 0) break;
+            }
+            
+            debugLog('Guest header row found at index: ' + headerRowIndex, 'info');
+            
+            if (headerRowIndex >= 0) {
+                var headerRow = rawData[headerRowIndex];
+                var keys = Object.keys(headerRow);
+                var headers = keys.map(function(k) { return String(headerRow[k] || '').trim(); });
+                debugLog('Actual guest headers: ' + headers.slice(0, 5).join(', '), 'info');
+                
+                var result = [];
+                for (var i = headerRowIndex + 1; i < rawData.length; i++) {
+                    var row = rawData[i];
+                    var rowKeys = Object.keys(row);
+                    var obj = {};
+                    rowKeys.forEach(function(k, idx) {
+                        if (headers[idx]) {
+                            obj[headers[idx]] = row[k];
+                        }
+                    });
+                    
+                    var firstName = obj['First Name'] || '';
+                    if (firstName && firstName !== 'First Name' && !firstName.includes('CLUB REGISTER') && !firstName.includes('GUEST')) {
+                        var meetingPct = obj['% Total Meetings \\n(Req. 60%)'] || obj['% Total Meetings'] || obj['Meeting %'] || '0';
+                        var projectPct = obj['% Total Projects \\n(Req. 50%)'] || obj['% Total Projects'] || obj['Project %'] || '0';
+                        
+                        // Handle percentage values (might be decimal like 0.6 or whole number like 60)
+                        meetingPct = parseFloat(meetingPct) || 0;
+                        if (meetingPct <= 1) meetingPct = meetingPct * 100;
+                        
+                        projectPct = parseFloat(projectPct) || 0;
+                        if (projectPct <= 1) projectPct = projectPct * 100;
+                        
+                        result.push({
+                            name: (firstName + ' ' + (obj['Last Name'] || '')).trim(),
+                            firstName: firstName,
+                            lastName: obj['Last Name'] || '',
+                            status: obj['Status'] || 'NO ATTENDANCE',
+                            meetingAttendance: parseInt(obj['Total out of Six (Meetings)']) || parseInt(obj['Meeting Count']) || 0,
+                            totalMeetings: 6,
+                            meetingPercentage: meetingPct,
+                            projectAttendance: parseInt(obj['Total out of Five (Projects)']) || parseInt(obj['Project Count']) || 0,
+                            totalProjects: 5,
+                            projectPercentage: projectPct,
+                            infoSession: obj['Information Session'] === 'TRUE' || obj['Information Session'] === 'true' || obj['Information Session'] === true,
+                            committeeMeeting: obj['Committee Meeting'] === 'TRUE' || obj['Committee Meeting'] === 'true' || obj['Committee Meeting'] === true,
+                            ugStudent: obj['Current or Graduate of UG'] === 'TRUE' || obj['Current or Graduate of UG'] === 'true' || obj['Current or Graduate of UG'] === true
+                        });
+                    }
+                }
+                debugLog('Processed ' + result.length + ' guests after re-parsing', 'success');
+                return result;
+            }
+            
+            // Fallback
             return rawData
-                .filter(row => {
-                    const name = row['First Name'] || row['first name'] || '';
+                .filter(function(row) {
+                    var name = row['First Name'] || row['first name'] || '';
                     return name && name !== 'First Name' && !name.includes('CLUB REGISTER');
                 })
-                .map(row => ({
-                    name: ((row['First Name'] || '') + ' ' + (row['Last Name'] || '')).trim(),
-                    firstName: row['First Name'] || '',
-                    lastName: row['Last Name'] || '',
-                    status: row['Status'] || 'NO ATTENDANCE',
-                    meetingAttendance: parseInt(row['Total out of Six (Meetings)']) || 0,
-                    totalMeetings: 6,
-                    meetingPercentage: (parseFloat(row['% Total Meetings \\n(Req. 60%)']) || 0) * 100,
-                    projectAttendance: parseInt(row['Total out of Five (Projects)']) || 0,
-                    totalProjects: 5,
-                    projectPercentage: (parseFloat(row['% Total Projects \\n(Req. 50%)']) || 0) * 100,
-                    infoSession: row['Information Session'] === 'TRUE' || row['Information Session'] === true,
-                    committeeMeeting: row['Committee Meeting'] === 'TRUE' || row['Committee Meeting'] === true,
-                    ugStudent: row['Current or Graduate of UG'] === 'TRUE' || row['Current or Graduate of UG'] === true
-                }));
+                .map(function(row) {
+                    return {
+                        name: ((row['First Name'] || '') + ' ' + (row['Last Name'] || '')).trim(),
+                        firstName: row['First Name'] || '',
+                        lastName: row['Last Name'] || '',
+                        status: row['Status'] || 'NO ATTENDANCE',
+                        meetingAttendance: parseInt(row['Total out of Six (Meetings)']) || 0,
+                        totalMeetings: 6,
+                        meetingPercentage: (parseFloat(row['% Total Meetings \\n(Req. 60%)']) || 0) * 100,
+                        projectAttendance: parseInt(row['Total out of Five (Projects)']) || 0,
+                        totalProjects: 5,
+                        projectPercentage: (parseFloat(row['% Total Projects \\n(Req. 50%)']) || 0) * 100,
+                        infoSession: row['Information Session'] === 'TRUE' || row['Information Session'] === true,
+                        committeeMeeting: row['Committee Meeting'] === 'TRUE' || row['Committee Meeting'] === true,
+                        ugStudent: row['Current or Graduate of UG'] === 'TRUE' || row['Current or Graduate of UG'] === true
+                    };
+                });
         }
 
         function calculateMemberAttendance() {
