@@ -945,7 +945,79 @@ const HTML_CONTENT = `<!DOCTYPE html>
         function closeModal() { document.getElementById('memberModal').style.display = 'none'; currentMemberForExport = null; }
         function exportCurrentMember() { if (currentMemberForExport) exportMemberPDF(currentMemberForExport); }
         function exportMemberCard(idx) { var filtered = getFilteredMembers(); if (filtered[idx]) exportMemberPDF(filtered[idx]); }
-Child(printDiv); alert('Error generating PDF'); });
+
+        function exportMemberPDF(m) {
+            var committees = getCommittees(m.fullName);
+            var businessCount = m.businessMeetings[currentPeriod].length;
+            var fellowshipCount = m.fellowshipMeetings[currentPeriod].length;
+            var totalMeetings = businessCount + fellowshipCount;
+            var totalRequired = TOTALS[currentPeriod].meetings;
+            var pct = totalRequired > 0 ? Math.round((totalMeetings / totalRequired) * 100) : 0;
+            
+            var businessScheduled = meetingSchedule[currentPeriod].business;
+            var fellowshipScheduled = meetingSchedule[currentPeriod].fellowship;
+            var businessAttendedDates = [], fellowshipAttendedDates = [];
+            for (var i = 0; i < m.businessMeetings[currentPeriod].length; i++) businessAttendedDates.push(m.businessMeetings[currentPeriod][i].date);
+            for (var i = 0; i < m.fellowshipMeetings[currentPeriod].length; i++) fellowshipAttendedDates.push(m.fellowshipMeetings[currentPeriod][i].date);
+            
+            var businessHtml = '';
+            for (var i = 0; i < businessScheduled.length; i++) {
+                var wasAttended = businessAttendedDates.indexOf(businessScheduled[i].date) !== -1;
+                businessHtml += '<li style="color:' + (wasAttended ? 'green' : 'red') + ';">' + businessScheduled[i].date + ' - ' + (wasAttended ? 'Attended' : 'Missed') + '</li>';
+            }
+            if (businessScheduled.length === 0) businessHtml = '<li>No meetings scheduled</li>';
+            
+            var fellowshipHtml = '';
+            for (var i = 0; i < fellowshipScheduled.length; i++) {
+                var wasAttended = fellowshipAttendedDates.indexOf(fellowshipScheduled[i].date) !== -1;
+                fellowshipHtml += '<li style="color:' + (wasAttended ? 'green' : 'red') + ';">' + fellowshipScheduled[i].date + ' - ' + (wasAttended ? 'Attended' : 'Missed') + '</li>';
+            }
+            if (fellowshipScheduled.length === 0) fellowshipHtml = '<li>No meetings scheduled</li>';
+            
+            var projectsHtml = '';
+            if (m.projects[currentPeriod].length > 0) {
+                for (var i = 0; i < m.projects[currentPeriod].length; i++) projectsHtml += '<li style="color:green;">' + m.projects[currentPeriod][i].date + '</li>';
+            } else { projectsHtml = '<li>No projects attended</li>'; }
+            
+            var boardHtml = '';
+            if (m.isBoardMember && m.boardMeetings) {
+                boardHtml = '<h3 style="color:#f39c12;margin-top:15px;">Board Meetings</h3><p>Q1: ' + m.boardMeetings.q1 + '/3 | Q2: ' + m.boardMeetings.q2 + '/3 | Total: ' + m.boardMeetings.total + '</p>';
+            }
+            
+            var electionsNotice = '';
+            if (currentPeriod === 'elections') {
+                var eligible = isElectionsEligible(m);
+                electionsNotice = '<div style="background:' + (eligible ? '#d4edda' : '#f8d7da') + ';padding:10px;margin:15px 0;border-radius:5px;"><strong style="color:' + (eligible ? 'green' : 'red') + ';">Elections: ' + (eligible ? 'ELIGIBLE' : 'NOT ELIGIBLE') + '</strong></div>';
+            }
+            
+            var printDiv = document.createElement('div');
+            printDiv.style.cssText = 'position:fixed;left:-9999px;width:800px;padding:40px;background:white;color:black;font-family:Arial,sans-serif;';
+            printDiv.innerHTML = '<div style="text-align:center;margin-bottom:30px;"><h1 style="color:#e91e63;margin:0;">Rotaract Club of University of Guyana</h1><h2 style="color:#666;margin:10px 0;">Member Attendance Report</h2><p style="color:#999;">Period: ' + currentPeriod.toUpperCase() + '</p></div>' +
+                '<div style="border:2px solid #e91e63;border-radius:10px;padding:20px;"><h2 style="margin-top:0;color:#333;">' + m.fullName + '</h2>' +
+                '<p><strong>Email:</strong> ' + (m.email || 'N/A') + '</p><p><strong>Contact:</strong> ' + (m.contact || 'N/A') + '</p>' +
+                '<p><strong>Category:</strong> ' + m.category + '</p><p><strong>Committees:</strong> ' + (committees.length > 0 ? committees.join(', ') : 'None') + '</p>' +
+                '<hr style="margin:15px 0;">' + electionsNotice +
+                '<h3 style="color:#333;">Attendance Summary</h3>' +
+                '<p><strong>Business:</strong> ' + businessCount + '/' + TOTALS[currentPeriod].business + '</p>' +
+                '<p><strong>Fellowship:</strong> ' + fellowshipCount + '/' + TOTALS[currentPeriod].fellowship + '</p>' +
+                '<p><strong>Total:</strong> ' + totalMeetings + '/' + totalRequired + ' (' + pct + '%)</p>' +
+                '<p><strong>Status:</strong> <span style="color:' + (pct >= 60 ? 'green' : 'red') + ';">' + (pct >= 60 ? 'Good Standing' : 'Needs Attention') + '</span></p>' +
+                '<hr style="margin:15px 0;"><h3 style="color:#3498db;">Business Meetings (' + businessCount + '/' + TOTALS[currentPeriod].business + ')</h3><ul>' + businessHtml + '</ul>' +
+                '<h3 style="color:#2ecc71;">Fellowship Meetings (' + fellowshipCount + '/' + TOTALS[currentPeriod].fellowship + ')</h3><ul>' + fellowshipHtml + '</ul>' +
+                '<h3 style="color:#e74c3c;">Projects (' + m.projects[currentPeriod].length + ')</h3><ul>' + projectsHtml + '</ul>' + boardHtml + '</div>' +
+                '<div style="text-align:center;margin-top:20px;color:#666;font-size:12px;">Generated: ' + new Date().toLocaleString() + '</div>';
+            
+            document.body.appendChild(printDiv);
+            html2canvas(printDiv, { scale: 2, backgroundColor: '#ffffff' }).then(function(canvas) {
+                var imgData = canvas.toDataURL('image/png');
+                var jsPDF = window.jspdf.jsPDF;
+                var pdf = new jsPDF('p', 'mm', 'a4');
+                var imgWidth = 210;
+                var imgHeight = (canvas.height * imgWidth) / canvas.width;
+                pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+                pdf.save(m.fullName.replace(/\\s+/g, '_') + '_Report_' + currentPeriod.toUpperCase() + '.pdf');
+                document.body.removeChild(printDiv);
+            }).catch(function() { document.body.removeChild(printDiv); alert('Error generating PDF'); });
         }
 
         function exportBirthdays() {
