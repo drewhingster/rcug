@@ -276,6 +276,26 @@ const HTML_CONTENT = `<!DOCTYPE html>
         };
         var EXCLUDED_NAMES = ['MEMBER REGISTRY', 'Full Name', 'Training', 'Assistant Secretary', 'Rotary Foundation', 'Membership Chair', 'Hobbies', 'Playing Games', 'Jogging', 'Going for long', 'Performing Arts', 'Athletics', 'CLUB REGISTER', 'GUEST'];
 
+        // Meeting schedule - all meetings that have occurred
+        var MEETING_SCHEDULE = {
+            q1: [
+                { date: '2024-07-13', name: 'July Business Meeting', type: 'Business Meeting' },
+                { date: '2024-07-27', name: 'July Fellowship', type: 'Fellowship Meeting' },
+                { date: '2024-08-10', name: 'August Business Meeting', type: 'Business Meeting' },
+                { date: '2024-08-24', name: 'August Fellowship', type: 'Fellowship Meeting' },
+                { date: '2024-09-14', name: 'September Business Meeting', type: 'Business Meeting' },
+                { date: '2024-09-28', name: 'September Fellowship', type: 'Fellowship Meeting' }
+            ],
+            q2: [
+                { date: '2024-10-12', name: 'October Business Meeting', type: 'Business Meeting' },
+                { date: '2024-10-26', name: 'October Fellowship', type: 'Fellowship Meeting' },
+                { date: '2024-11-09', name: 'November Business Meeting', type: 'Business Meeting' },
+                { date: '2024-11-23', name: 'November Fellowship', type: 'Fellowship Meeting' },
+                { date: '2024-12-07', name: 'December Business Meeting', type: 'Business Meeting' }
+            ]
+        };
+        MEETING_SCHEDULE.h1 = MEETING_SCHEDULE.q1.concat(MEETING_SCHEDULE.q2);
+
         var members = [];
         var guests = [];
         var allAttendance = [];
@@ -453,6 +473,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     meetings: { q1: 0, q2: 0, h1: 0 },
                     projects: { q1: 0, q2: 0, h1: 0 },
                     meetingDetails: { q1: [], q2: [], h1: [] },
+                    missedMeetings: { q1: [], q2: [], h1: [] },
                     boardMeetings: isBoardMember && boardAttendance[name] ? boardAttendance[name] : null
                 });
             }
@@ -507,13 +528,32 @@ const HTML_CONTENT = `<!DOCTYPE html>
                         else if (a.quarter === period.toUpperCase()) att.push(a);
                     }
                     var meetCount = 0, projCount = 0;
+                    var attendedDates = [];
                     for (var j = 0; j < att.length; j++) {
-                        if (att[j].type === 'Business Meeting' || att[j].type === 'Fellowship Meeting') meetCount++;
+                        if (att[j].type === 'Business Meeting' || att[j].type === 'Fellowship Meeting') {
+                            meetCount++;
+                            attendedDates.push(att[j].dateFormatted);
+                        }
                         if (att[j].type === 'Project') projCount++;
                         m.meetingDetails[period].push({ date: att[j].dateFormatted, type: att[j].type });
                     }
                     m.meetings[period] = meetCount;
                     m.projects[period] = projCount;
+                    
+                    // Calculate missed meetings
+                    if (MEETING_SCHEDULE[period]) {
+                        for (var k = 0; k < MEETING_SCHEDULE[period].length; k++) {
+                            var scheduled = MEETING_SCHEDULE[period][k];
+                            var scheduledFormatted = formatDate(scheduled.date);
+                            var wasAttended = false;
+                            for (var x = 0; x < attendedDates.length; x++) {
+                                if (attendedDates[x] === scheduledFormatted) { wasAttended = true; break; }
+                            }
+                            if (!wasAttended) {
+                                m.missedMeetings[period].push({ date: scheduledFormatted, name: scheduled.name, type: scheduled.type });
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -800,6 +840,17 @@ const HTML_CONTENT = `<!DOCTYPE html>
             } else {
                 attendedHtml = '<div style="color:#95a5a6;padding:10px;">No meetings attended</div>';
             }
+            
+            var missedHtml = '';
+            if (m.missedMeetings[currentPeriod] && m.missedMeetings[currentPeriod].length > 0) {
+                for (var i = 0; i < m.missedMeetings[currentPeriod].length; i++) {
+                    var mm = m.missedMeetings[currentPeriod][i];
+                    missedHtml += '<div class="meeting-item" style="background:rgba(231,76,60,0.1);"><span class="meeting-date" style="color:#e74c3c;">' + mm.date + '</span><span class="meeting-type">' + mm.name + '</span></div>';
+                }
+            } else {
+                missedHtml = '<div style="color:#27ae60;padding:10px;">No meetings missed - Great job!</div>';
+            }
+            
             document.getElementById('modalContent').innerHTML = '<div class="modal-header">' +
                 '<div class="modal-name">' + m.fullName + '</div>' +
                 '<div class="modal-email">' + (m.email || 'No email') + '</div>' +
@@ -815,7 +866,8 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 '<div class="detail-card"><div class="detail-label">Meetings</div><div class="detail-value">' + m.meetings[currentPeriod] + '/' + TOTALS[currentPeriod].meetings + ' (' + pct + '%)</div></div>' +
                 '<div class="detail-card"><div class="detail-label">Projects</div><div class="detail-value">' + m.projects[currentPeriod] + '/' + TOTALS[currentPeriod].projects + '</div></div>' +
                 '</div></div>' +
-                '<div class="detail-section"><div class="detail-title">Meetings Attended</div><div class="meeting-list">' + attendedHtml + '</div></div>';
+                '<div class="detail-section"><div class="detail-title" style="color:#27ae60;">Meetings Attended (' + m.meetingDetails[currentPeriod].length + ')</div><div class="meeting-list">' + attendedHtml + '</div></div>' +
+                '<div class="detail-section"><div class="detail-title" style="color:#e74c3c;">Meetings Missed (' + (m.missedMeetings[currentPeriod] ? m.missedMeetings[currentPeriod].length : 0) + ')</div><div class="meeting-list">' + missedHtml + '</div></div>';
             document.getElementById('memberModal').style.display = 'flex';
         }
 
@@ -858,6 +910,15 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     attendedList += '<li>' + md.date + ' - ' + md.type + '</li>';
                 }
             } else { attendedList = '<li>None</li>'; }
+            
+            var missedList = '';
+            if (m.missedMeetings[currentPeriod] && m.missedMeetings[currentPeriod].length > 0) {
+                for (var i = 0; i < m.missedMeetings[currentPeriod].length; i++) {
+                    var mm = m.missedMeetings[currentPeriod][i];
+                    missedList += '<li style="color:red;">' + mm.date + ' - ' + mm.name + '</li>';
+                }
+            } else { missedList = '<li style="color:green;">None - Great attendance!</li>'; }
+            
             var printDiv = document.createElement('div');
             printDiv.style.cssText = 'position:fixed;left:-9999px;width:800px;padding:40px;background:white;color:black;font-family:Arial,sans-serif;';
             printDiv.innerHTML = '<div style="text-align:center;margin-bottom:30px;"><h1 style="color:#e91e63;margin:0;">Rotaract Club of University of Guyana</h1>' +
@@ -869,7 +930,8 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 '<p><strong>Meetings:</strong> ' + m.meetings[currentPeriod] + '/' + TOTALS[currentPeriod].meetings + ' (' + pct + '%)</p>' +
                 '<p><strong>Projects:</strong> ' + m.projects[currentPeriod] + '/' + TOTALS[currentPeriod].projects + '</p>' +
                 '<p><strong>Status:</strong> <span style="color:' + (pct >= 60 ? 'green' : 'red') + ';">' + (pct >= 60 ? 'Good Standing' : 'Needs Attention') + '</span></p>' +
-                '<hr style="margin:15px 0;"><h3 style="color:#333;">Meetings Attended</h3><ul>' + attendedList + '</ul></div>' +
+                '<hr style="margin:15px 0;"><h3 style="color:green;">Meetings Attended (' + m.meetingDetails[currentPeriod].length + ')</h3><ul>' + attendedList + '</ul>' +
+                '<h3 style="color:red;">Meetings Missed (' + (m.missedMeetings[currentPeriod] ? m.missedMeetings[currentPeriod].length : 0) + ')</h3><ul>' + missedList + '</ul></div>' +
                 '<div style="text-align:center;margin-top:20px;color:#666;font-size:12px;">Generated: ' + new Date().toLocaleString() + '</div>';
             document.body.appendChild(printDiv);
             html2canvas(printDiv, { scale: 2, backgroundColor: '#ffffff' }).then(function(canvas) {
