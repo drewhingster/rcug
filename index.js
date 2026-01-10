@@ -157,7 +157,10 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     <select id="periodSelect">
                         <option value="q1">Q1 (Jul-Sep)</option>
                         <option value="q2" selected>Q2 (Oct-Dec)</option>
+                        <option value="q3">Q3 (Jan-Mar)</option>
+                        <option value="q4">Q4 (Apr-Jun)</option>
                         <option value="h1">H1 (Jul-Dec)</option>
+                        <option value="h2">H2 (Jan-Jun)</option>
                         <option value="elections">Elections Eligibility</option>
                     </select>
                 </div>
@@ -254,10 +257,15 @@ const HTML_CONTENT = `<!DOCTYPE html>
         var ATTENDANCE_URL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:csv&gid=1315129184';
 
         // Dynamic totals - updated from database
+        // Rotary Year: Q1 (Jul-Sep), Q2 (Oct-Dec), Q3 (Jan-Mar), Q4 (Apr-Jun)
+        // H1 = Q1 + Q2, H2 = Q3 + Q4
         var TOTALS = {
             q1: { meetings: 6, business: 3, fellowship: 3, projects: 5 },
             q2: { meetings: 4, business: 2, fellowship: 2, projects: 5 },
+            q3: { meetings: 0, business: 0, fellowship: 0, projects: 0 },
+            q4: { meetings: 0, business: 0, fellowship: 0, projects: 0 },
             h1: { meetings: 10, business: 5, fellowship: 5, projects: 10 },
+            h2: { meetings: 0, business: 0, fellowship: 0, projects: 0 },
             elections: { meetings: 12, business: 6, fellowship: 6, projects: 10 }
         };
 
@@ -427,7 +435,15 @@ const HTML_CONTENT = `<!DOCTYPE html>
 
         function processAttendance(data) {
             allAttendance = [];
-            meetingSchedule = { q1: { business: [], fellowship: [] }, q2: { business: [], fellowship: [] }, h1: { business: [], fellowship: [] }, elections: { business: [], fellowship: [] } };
+            meetingSchedule = { 
+                q1: { business: [], fellowship: [] }, 
+                q2: { business: [], fellowship: [] }, 
+                q3: { business: [], fellowship: [] }, 
+                q4: { business: [], fellowship: [] }, 
+                h1: { business: [], fellowship: [] }, 
+                h2: { business: [], fellowship: [] }, 
+                elections: { business: [], fellowship: [] } 
+            };
             if (!data.length) return;
             
             var hdr = -1;
@@ -479,26 +495,44 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     meetingSchedule.q2[targetArray].push(meeting);
                     meetingSchedule.h1[targetArray].push(meeting);
                     meetingSchedule.elections[targetArray].push(meeting);
-                } else if (meeting.quarter === 'Q3' && meeting.isJanuary) {
-                    meetingSchedule.elections[targetArray].push(meeting);
+                } else if (meeting.quarter === 'Q3') {
+                    meetingSchedule.q3[targetArray].push(meeting);
+                    meetingSchedule.h2[targetArray].push(meeting);
+                    // January Q3 meetings count toward elections
+                    if (meeting.isJanuary) {
+                        meetingSchedule.elections[targetArray].push(meeting);
+                    }
+                } else if (meeting.quarter === 'Q4') {
+                    meetingSchedule.q4[targetArray].push(meeting);
+                    meetingSchedule.h2[targetArray].push(meeting);
                 }
             }
             
-            var periods = ['q1', 'q2', 'h1', 'elections'];
+            var periods = ['q1', 'q2', 'q3', 'q4', 'h1', 'h2', 'elections'];
             for (var p = 0; p < periods.length; p++) {
                 meetingSchedule[periods[p]].business.sort(function(a, b) { return (a.dateObj || new Date(0)) - (b.dateObj || new Date(0)); });
                 meetingSchedule[periods[p]].fellowship.sort(function(a, b) { return (a.dateObj || new Date(0)) - (b.dateObj || new Date(0)); });
             }
             
+            // Update TOTALS dynamically from actual data
             TOTALS.q1.business = meetingSchedule.q1.business.length;
             TOTALS.q1.fellowship = meetingSchedule.q1.fellowship.length;
             TOTALS.q1.meetings = TOTALS.q1.business + TOTALS.q1.fellowship;
             TOTALS.q2.business = meetingSchedule.q2.business.length;
             TOTALS.q2.fellowship = meetingSchedule.q2.fellowship.length;
             TOTALS.q2.meetings = TOTALS.q2.business + TOTALS.q2.fellowship;
+            TOTALS.q3.business = meetingSchedule.q3.business.length;
+            TOTALS.q3.fellowship = meetingSchedule.q3.fellowship.length;
+            TOTALS.q3.meetings = TOTALS.q3.business + TOTALS.q3.fellowship;
+            TOTALS.q4.business = meetingSchedule.q4.business.length;
+            TOTALS.q4.fellowship = meetingSchedule.q4.fellowship.length;
+            TOTALS.q4.meetings = TOTALS.q4.business + TOTALS.q4.fellowship;
             TOTALS.h1.business = meetingSchedule.h1.business.length;
             TOTALS.h1.fellowship = meetingSchedule.h1.fellowship.length;
             TOTALS.h1.meetings = TOTALS.h1.business + TOTALS.h1.fellowship;
+            TOTALS.h2.business = meetingSchedule.h2.business.length;
+            TOTALS.h2.fellowship = meetingSchedule.h2.fellowship.length;
+            TOTALS.h2.meetings = TOTALS.h2.business + TOTALS.h2.fellowship;
             TOTALS.elections.business = meetingSchedule.elections.business.length;
             TOTALS.elections.fellowship = meetingSchedule.elections.fellowship.length;
             TOTALS.elections.meetings = TOTALS.elections.business + TOTALS.elections.fellowship;
@@ -552,9 +586,9 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     isNewMember: isNewMember(r[7]),
                     isBoardMember: isBoardMember,
                     isTerminated: isTerminated,
-                    businessMeetings: { q1: [], q2: [], h1: [], elections: [] },
-                    fellowshipMeetings: { q1: [], q2: [], h1: [], elections: [] },
-                    projects: { q1: [], q2: [], h1: [], elections: [] },
+                    businessMeetings: { q1: [], q2: [], q3: [], q4: [], h1: [], h2: [], elections: [] },
+                    fellowshipMeetings: { q1: [], q2: [], q3: [], q4: [], h1: [], h2: [], elections: [] },
+                    projects: { q1: [], q2: [], q3: [], q4: [], h1: [], h2: [], elections: [] },
                     boardMeetings: isBoardMember && boardAttendance[name] ? boardAttendance[name] : null
                 });
             }
@@ -594,7 +628,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
         function calculateMemberStats() {
             for (var i = 0; i < members.length; i++) {
                 var m = members[i];
-                var periods = ['q1', 'q2', 'h1', 'elections'];
+                var periods = ['q1', 'q2', 'q3', 'q4', 'h1', 'h2', 'elections'];
                 for (var p = 0; p < periods.length; p++) {
                     m.businessMeetings[periods[p]] = [];
                     m.fellowshipMeetings[periods[p]] = [];
@@ -607,16 +641,64 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     var meetingData = { date: a.dateFormatted, dateObj: a.dateObj, type: a.type };
                     
                     if (a.type === 'Business Meeting') {
-                        if (a.quarter === 'Q1') { m.businessMeetings.q1.push(meetingData); m.businessMeetings.h1.push(meetingData); m.businessMeetings.elections.push(meetingData); }
-                        else if (a.quarter === 'Q2') { m.businessMeetings.q2.push(meetingData); m.businessMeetings.h1.push(meetingData); m.businessMeetings.elections.push(meetingData); }
-                        else if (a.quarter === 'Q3' && a.isJanuary) { m.businessMeetings.elections.push(meetingData); }
+                        if (a.quarter === 'Q1') { 
+                            m.businessMeetings.q1.push(meetingData); 
+                            m.businessMeetings.h1.push(meetingData); 
+                            m.businessMeetings.elections.push(meetingData); 
+                        }
+                        else if (a.quarter === 'Q2') { 
+                            m.businessMeetings.q2.push(meetingData); 
+                            m.businessMeetings.h1.push(meetingData); 
+                            m.businessMeetings.elections.push(meetingData); 
+                        }
+                        else if (a.quarter === 'Q3') { 
+                            m.businessMeetings.q3.push(meetingData); 
+                            m.businessMeetings.h2.push(meetingData); 
+                            if (a.isJanuary) m.businessMeetings.elections.push(meetingData); 
+                        }
+                        else if (a.quarter === 'Q4') { 
+                            m.businessMeetings.q4.push(meetingData); 
+                            m.businessMeetings.h2.push(meetingData); 
+                        }
                     } else if (a.type === 'Fellowship Meeting') {
-                        if (a.quarter === 'Q1') { m.fellowshipMeetings.q1.push(meetingData); m.fellowshipMeetings.h1.push(meetingData); m.fellowshipMeetings.elections.push(meetingData); }
-                        else if (a.quarter === 'Q2') { m.fellowshipMeetings.q2.push(meetingData); m.fellowshipMeetings.h1.push(meetingData); m.fellowshipMeetings.elections.push(meetingData); }
-                        else if (a.quarter === 'Q3' && a.isJanuary) { m.fellowshipMeetings.elections.push(meetingData); }
+                        if (a.quarter === 'Q1') { 
+                            m.fellowshipMeetings.q1.push(meetingData); 
+                            m.fellowshipMeetings.h1.push(meetingData); 
+                            m.fellowshipMeetings.elections.push(meetingData); 
+                        }
+                        else if (a.quarter === 'Q2') { 
+                            m.fellowshipMeetings.q2.push(meetingData); 
+                            m.fellowshipMeetings.h1.push(meetingData); 
+                            m.fellowshipMeetings.elections.push(meetingData); 
+                        }
+                        else if (a.quarter === 'Q3') { 
+                            m.fellowshipMeetings.q3.push(meetingData); 
+                            m.fellowshipMeetings.h2.push(meetingData); 
+                            if (a.isJanuary) m.fellowshipMeetings.elections.push(meetingData); 
+                        }
+                        else if (a.quarter === 'Q4') { 
+                            m.fellowshipMeetings.q4.push(meetingData); 
+                            m.fellowshipMeetings.h2.push(meetingData); 
+                        }
                     } else if (a.type === 'Project') {
-                        if (a.quarter === 'Q1') { m.projects.q1.push(meetingData); m.projects.h1.push(meetingData); m.projects.elections.push(meetingData); }
-                        else if (a.quarter === 'Q2') { m.projects.q2.push(meetingData); m.projects.h1.push(meetingData); m.projects.elections.push(meetingData); }
+                        if (a.quarter === 'Q1') { 
+                            m.projects.q1.push(meetingData); 
+                            m.projects.h1.push(meetingData); 
+                            m.projects.elections.push(meetingData); 
+                        }
+                        else if (a.quarter === 'Q2') { 
+                            m.projects.q2.push(meetingData); 
+                            m.projects.h1.push(meetingData); 
+                            m.projects.elections.push(meetingData); 
+                        }
+                        else if (a.quarter === 'Q3') { 
+                            m.projects.q3.push(meetingData); 
+                            m.projects.h2.push(meetingData); 
+                        }
+                        else if (a.quarter === 'Q4') { 
+                            m.projects.q4.push(meetingData); 
+                            m.projects.h2.push(meetingData); 
+                        }
                     }
                 }
             }
