@@ -518,6 +518,15 @@ const HTML_CONTENT = `<!DOCTYPE html>
             TOTALS.q1.business = meetingSchedule.q1.business.length;
             TOTALS.q1.fellowship = meetingSchedule.q1.fellowship.length;
             TOTALS.q1.meetings = TOTALS.q1.business + TOTALS.q1.fellowship;
+            
+            // DEBUG: Log Q1 data for troubleshooting (remove after fix confirmed)
+            console.log('=== Q1 DATA DEBUG ===');
+            console.log('Q1 Business Meetings:', meetingSchedule.q1.business.length, meetingSchedule.q1.business);
+            console.log('Q1 Fellowship Meetings:', meetingSchedule.q1.fellowship.length, meetingSchedule.q1.fellowship);
+            console.log('All Attendance Records:', allAttendance.length);
+            console.log('Q1 Attendance Sample:', allAttendance.filter(function(a) { return a.quarter === 'Q1'; }).slice(0, 5));
+            console.log('Unique Quarters Found:', [...new Set(allAttendance.map(function(a) { return a.quarter; }))]);
+            
             TOTALS.q2.business = meetingSchedule.q2.business.length;
             TOTALS.q2.fellowship = meetingSchedule.q2.fellowship.length;
             TOTALS.q2.meetings = TOTALS.q2.business + TOTALS.q2.fellowship;
@@ -548,12 +557,14 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 if (r[0] === 'First Name' || !r[0] || r[0] === 'Total') continue;
                 var name = ((r[0] || '') + ' ' + (r[1] || '')).trim();
                 if (!name) continue;
-                if (!boardAttendance[name]) boardAttendance[name] = { total: 0, q1: 0, q2: 0 };
+                if (!boardAttendance[name]) boardAttendance[name] = { total: 0, q1: 0, q2: 0, q3: 0, q4: 0 };
                 var qTotal = 0;
                 for (var j = 2; j <= 4; j++) { if (r[j] == 1 || r[j] === '1') qTotal++; }
                 if (currentQuarter === 1) boardAttendance[name].q1 = qTotal;
                 else if (currentQuarter === 2) boardAttendance[name].q2 = qTotal;
-                boardAttendance[name].total = boardAttendance[name].q1 + boardAttendance[name].q2;
+                else if (currentQuarter === 3) boardAttendance[name].q3 = qTotal;
+                else if (currentQuarter === 4) boardAttendance[name].q4 = qTotal;
+                boardAttendance[name].total = boardAttendance[name].q1 + boardAttendance[name].q2 + boardAttendance[name].q3 + boardAttendance[name].q4;
             }
         }
 
@@ -977,7 +988,9 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 boardHtml = '<div class="detail-section"><div class="detail-title board">Board Meetings</div><div class="detail-grid">' +
                     '<div class="detail-card"><div class="detail-label">Q1</div><div class="detail-value">' + m.boardMeetings.q1 + '/3</div></div>' +
                     '<div class="detail-card"><div class="detail-label">Q2</div><div class="detail-value">' + m.boardMeetings.q2 + '/3</div></div>' +
-                    '<div class="detail-card"><div class="detail-label">Total</div><div class="detail-value">' + m.boardMeetings.total + '</div></div></div></div>';
+                    '<div class="detail-card"><div class="detail-label">Q3</div><div class="detail-value">' + m.boardMeetings.q3 + '/3</div></div>' +
+                    '<div class="detail-card"><div class="detail-label">Q4</div><div class="detail-value">' + m.boardMeetings.q4 + '/3</div></div>' +
+                    '<div class="detail-card"><div class="detail-label">Total</div><div class="detail-value">' + m.boardMeetings.total + '/12</div></div></div></div>';
             }
             
             var electionsHtml = '';
@@ -1063,7 +1076,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             
             var boardHtml = '';
             if (m.isBoardMember && m.boardMeetings) {
-                boardHtml = '<h3 style="color:#f39c12;margin-top:15px;">Board Meetings</h3><p>Q1: ' + m.boardMeetings.q1 + '/3 | Q2: ' + m.boardMeetings.q2 + '/3 | Total: ' + m.boardMeetings.total + '</p>';
+                boardHtml = '<h3 style="color:#f39c12;margin-top:15px;">Board Meetings</h3><p>Q1: ' + m.boardMeetings.q1 + '/3 | Q2: ' + m.boardMeetings.q2 + '/3 | Q3: ' + m.boardMeetings.q3 + '/3 | Q4: ' + m.boardMeetings.q4 + '/3 | Total: ' + m.boardMeetings.total + '/12</p>';
             }
             
             var electionsNotice = '';
