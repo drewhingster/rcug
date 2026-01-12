@@ -172,7 +172,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
 <body>
     <div class="container">
         <header>
-            <h1>ðŸŒŸ RCUG Member Progress Dashboard</h1>
+            <h1>⭐ RCUG Member Progress Dashboard</h1>
             <p class="subtitle">Rotaract Club of University of Guyana | Track Member & Guest Progress</p>
             <p id="lastUpdated" class="subtitle" style="margin-top:5px;"></p>
         </header>
@@ -188,8 +188,8 @@ const HTML_CONTENT = `<!DOCTYPE html>
             <!-- Tabs -->
             <div class="tabs">
                 <div class="tab members active" onclick="switchTab('members')">ðŸ‘¥ Members</div>
-                <div class="tab guests" onclick="switchTab('guests')">ðŸŽ¯ Guests</div>
-                <div class="tab reports" onclick="switchTab('reports')">ðŸ“Š Reports & Exports</div>
+                <div class="tab guests" onclick="switchTab('guests')">🎯 Guests</div>
+                <div class="tab reports" onclick="switchTab('reports')">📊 Reports & Exports</div>
             </div>
             
             <!-- Members Section -->
@@ -268,7 +268,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             <div id="reportsSection" class="report-section">
                 <!-- Birthday Report -->
                 <div class="report-card">
-                    <h2 class="report-title">ðŸŽ‚ Birthday Report</h2>
+                    <h2 class="report-title">🎂 Birthday Report</h2>
                     <p class="report-description">Generate monthly birthday lists for Public Image posts</p>
                     <div class="report-controls">
                         <select id="birthdayMonthFilter" class="filter-select">
@@ -286,14 +286,14 @@ const HTML_CONTENT = `<!DOCTYPE html>
                             <option value="11">November</option>
                             <option value="12">December</option>
                         </select>
-                        <button class="export-btn" onclick="generateBirthdayPDF()" id="birthdayExportBtn" disabled>ðŸ“„ Export PDF</button>
+                        <button class="export-btn" onclick="generateBirthdayPDF()" id="birthdayExportBtn" disabled>�„ Export PDF</button>
                     </div>
                     <div id="birthdayReportTable" class="report-table"></div>
                 </div>
                 
                 <!-- Anniversary Report -->
                 <div class="report-card">
-                    <h2 class="report-title">ðŸŽ‰ Induction Anniversary Report</h2>
+                    <h2 class="report-title">🎉 Induction Anniversary Report</h2>
                     <p class="report-description">Generate monthly anniversary lists for Public Image posts</p>
                     <div class="report-controls">
                         <select id="anniversaryMonthFilter" class="filter-select">
@@ -311,7 +311,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                             <option value="11">November</option>
                             <option value="12">December</option>
                         </select>
-                        <button class="export-btn" onclick="generateAnniversaryPDF()" id="anniversaryExportBtn" disabled>ðŸ“„ Export PDF</button>
+                        <button class="export-btn" onclick="generateAnniversaryPDF()" id="anniversaryExportBtn" disabled>�„ Export PDF</button>
                     </div>
                     <div id="anniversaryReportTable" class="report-table"></div>
                 </div>
@@ -330,19 +330,19 @@ const HTML_CONTENT = `<!DOCTYPE html>
                             <option value="h2">Half 2 (Q3 + Q4)</option>
                             <option value="annual">Annual (Full Year)</option>
                         </select>
-                        <button class="export-btn" onclick="generateAttendanceWarningPDF()">ðŸ“„ Export PDF</button>
-                        <button class="export-btn" onclick="generateAttendanceWarningCSV()">ðŸ“Š Export CSV</button>
+                        <button class="export-btn" onclick="generateAttendanceWarningPDF()">�„ Export PDF</button>
+                        <button class="export-btn" onclick="generateAttendanceWarningCSV()">📊 Export CSV</button>
                     </div>
                     <div id="attendanceWarningTable" class="report-table"></div>
                 </div>
                 
                 <!-- Guest Eligibility Report -->
                 <div class="report-card">
-                    <h2 class="report-title">ðŸŒŸ Guest Eligibility Report</h2>
+                    <h2 class="report-title">⭐ Guest Eligibility Report</h2>
                     <p class="report-description">Guests who have met membership requirements and are ready for proposal</p>
                     <div class="report-controls">
-                        <button class="export-btn" onclick="generateGuestEligibilityPDF()">ðŸ“„ Export PDF</button>
-                        <button class="export-btn" onclick="generateGuestEligibilityCSV()">ðŸ“Š Export CSV</button>
+                        <button class="export-btn" onclick="generateGuestEligibilityPDF()">�„ Export PDF</button>
+                        <button class="export-btn" onclick="generateGuestEligibilityCSV()">📊 Export CSV</button>
                     </div>
                     <div id="guestEligibilityTable" class="report-table"></div>
                 </div>
@@ -360,7 +360,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
 
     <script>
         const SHEET_ID = '1j0uOvYCe-DvOsPjxyb7RfLm7ddeB_LL99cJKeO40RaM';
-       const GUEST_URL = \`https://docs.google.com/spreadsheets/d/\${SHEET_ID}/gviz/tq?tqx=out:csv&gid=1284804990\`;
+        const GUEST_URL = \`https://docs.google.com/spreadsheets/d/\${SHEET_ID}/gviz/tq?tqx=out:csv&gid=1284804990\`;
         const MEMBER_URL = \`https://docs.google.com/spreadsheets/d/\${SHEET_ID}/gviz/tq?tqx=out:csv&gid=1821690489\`;
         const BOARD_URL = \`https://docs.google.com/spreadsheets/d/\${SHEET_ID}/gviz/tq?tqx=out:csv&gid=419776584\`;
         const ATTENDANCE_URL = \`https://docs.google.com/spreadsheets/d/\${SHEET_ID}/gviz/tq?tqx=out:csv&gid=1315129184\`;
@@ -727,8 +727,11 @@ const HTML_CONTENT = `<!DOCTYPE html>
             
             let boardSection = '';
             if (m.isBoardMember && m.boardMeetings) {
-                const bp = currentPeriod === 'h1' ? (m.boardMeetings.q1 + m.boardMeetings.q2) : m.boardMeetings[currentPeriod];
-                const btotal = currentPeriod === 'h1' ? 6 : 3;
+                let bp, btotal;
+                if (currentPeriod === 'h1') { bp = (m.boardMeetings.q1 || 0) + (m.boardMeetings.q2 || 0); btotal = 6; }
+                else if (currentPeriod === 'h2') { bp = (m.boardMeetings.q3 || 0) + (m.boardMeetings.q4 || 0); btotal = 6; }
+                else if (currentPeriod === 'annual') { bp = (m.boardMeetings.total || 0); btotal = 12; }
+                else { bp = (m.boardMeetings[currentPeriod] || 0); btotal = 3; }
                 boardSection = \`
                     <div class="progress-row">
                         <span class="progress-label">Board Mtgs</span>
@@ -743,7 +746,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             return \`
                 <div class="member-card \${statusClass}" onclick="showMemberDetails('\${m.fullName.replace(/'/g, "\\\\'")}')">
                     <div class="card-actions">
-                        <button class="card-action-btn" onclick="event.stopPropagation(); exportMemberCard('\${m.fullName.replace(/'/g, "\\\\'")}')">ðŸ“„ Export</button>
+                        <button class="card-action-btn" onclick="event.stopPropagation(); exportMemberCard('\${m.fullName.replace(/'/g, "\\\\'")}')">�„ Export</button>
                     </div>
                     <div class="card-header">
                         <div>
@@ -797,7 +800,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
         function renderGuestCard(g) {
             const eligible = isEligible(g);
             const statusClass = eligible ? 'eligible' : g.ug ? 'guest' : 'notug';
-            const statusText = eligible ? 'âœ… Eligible' : !g.info ? 'ðŸ“ Info Session Needed' : !g.ug ? 'âŒ Not UG' : 'â³ In Progress';
+            const statusText = eligible ? '✅ Eligible' : !g.info ? '� Info Session Needed' : !g.ug ? 'âŒ Not UG' : 'â³ In Progress';
             
             return \`
                 <div class="member-card \${statusClass}">
@@ -823,11 +826,11 @@ const HTML_CONTENT = `<!DOCTYPE html>
                         <span class="progress-value">\${g.projects}/\${TOTALS.h1.projects} (\${Math.round(g.projPct)}%)</span>
                     </div>
                     <div class="checklist">
-                        <div class="check-item \${g.meetings >= 3 ? 'check-done' : 'check-pending'}">\${g.meetings >= 3 ? 'âœ…' : 'âŒ'} 3+ Business Meetings</div>
-                        <div class="check-item \${g.projects >= 2 ? 'check-done' : 'check-pending'}">\${g.projects >= 2 ? 'âœ…' : 'âŒ'} 2+ Projects</div>
-                        <div class="check-item \${g.info ? 'check-done' : 'check-pending'}">\${g.info ? 'âœ…' : 'âŒ'} Info Session</div>
-                        <div class="check-item \${g.committee ? 'check-done' : 'check-pending'}">\${g.committee ? 'âœ…' : 'âŒ'} Committee Meeting</div>
-                        <div class="check-item \${g.ug ? 'check-done' : 'check-pending'}">\${g.ug ? 'âœ…' : 'âŒ'} UG Student/Graduate</div>
+                        <div class="check-item \${g.meetings >= 3 ? 'check-done' : 'check-pending'}">\${g.meetings >= 3 ? '✅' : 'âŒ'} 3+ Business Meetings</div>
+                        <div class="check-item \${g.projects >= 2 ? 'check-done' : 'check-pending'}">\${g.projects >= 2 ? '✅' : 'âŒ'} 2+ Projects</div>
+                        <div class="check-item \${g.info ? 'check-done' : 'check-pending'}">\${g.info ? '✅' : 'âŒ'} Info Session</div>
+                        <div class="check-item \${g.committee ? 'check-done' : 'check-pending'}">\${g.committee ? '✅' : 'âŒ'} Committee Meeting</div>
+                        <div class="check-item \${g.ug ? 'check-done' : 'check-pending'}">\${g.ug ? '✅' : 'âŒ'} UG Student/Graduate</div>
                     </div>
                 </div>
             \`;
@@ -879,7 +882,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 <div class="modal-header">
                     <div class="modal-name">\${m.fullName}</div>
                     <div class="modal-email">\${m.email || 'No email on file'}</div>
-                    \${m.contact ? \`<div class="modal-contact">ðŸ“ž \${m.contact}</div>\` : ''}
+                    \${m.contact ? \`<div class="modal-contact">�ž \${m.contact}</div>\` : ''}
                 </div>
                 
                 <div class="detail-section">
@@ -1144,7 +1147,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             });
             
             if (atRisk.length === 0) {
-                table.innerHTML = '<p style="text-align:center;color:#27ae60;padding:20px;">âœ… All members meet attendance requirements!</p>';
+                table.innerHTML = '<p style="text-align:center;color:#27ae60;padding:20px;">✅ All members meet attendance requirements!</p>';
                 return;
             }
             
@@ -1204,9 +1207,9 @@ const HTML_CONTENT = `<!DOCTYPE html>
                                 <td>\${g.fullName}</td>
                                 <td>\${g.meetings}/\${TOTALS.h1.meetings}</td>
                                 <td>\${g.projects}/\${TOTALS.h1.projects}</td>
-                                <td style="color:#27ae60">\${g.info ? 'âœ…' : 'âŒ'}</td>
-                                <td style="color:#27ae60">\${g.committee ? 'âœ…' : 'âŒ'}</td>
-                                <td style="color:#27ae60">\${g.ug ? 'âœ…' : 'âŒ'}</td>
+                                <td style="color:#27ae60">\${g.info ? '✅' : 'âŒ'}</td>
+                                <td style="color:#27ae60">\${g.committee ? '✅' : 'âŒ'}</td>
+                                <td style="color:#27ae60">\${g.ug ? '✅' : 'âŒ'}</td>
                             </tr>
                         \`).join('')}
                     </tbody>
