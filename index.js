@@ -360,19 +360,19 @@ const HTML_CONTENT = `<!DOCTYPE html>
 
     <script>
         const SHEET_ID = '1j0uOvYCe-DvOsPjxyb7RfLm7ddeB_LL99cJKeO40RaM';
-        const GUEST_URL = `https://docs.google.com/spreadsheets/d/\${SHEET_ID}/gviz/tq?tqx=out:csv&gid=1481344095`;
-        const MEMBER_URL = `https://docs.google.com/spreadsheets/d/\${SHEET_ID}/gviz/tq?tqx=out:csv&gid=1866054086`;
-        const BOARD_URL = `https://docs.google.com/spreadsheets/d/\${SHEET_ID}/gviz/tq?tqx=out:csv&gid=1655629595`;
-        const ATTENDANCE_URL = `https://docs.google.com/spreadsheets/d/\${SHEET_ID}/gviz/tq?tqx=out:csv&gid=1979579639`;
+        const GUEST_URL = \`https://docs.google.com/spreadsheets/d/\${SHEET_ID}/gviz/tq?tqx=out:csv&gid=1481344095\`;
+        const MEMBER_URL = \`https://docs.google.com/spreadsheets/d/\${SHEET_ID}/gviz/tq?tqx=out:csv&gid=1866054086\`;
+        const BOARD_URL = \`https://docs.google.com/spreadsheets/d/\${SHEET_ID}/gviz/tq?tqx=out:csv&gid=1655629595\`;
+        const ATTENDANCE_URL = \`https://docs.google.com/spreadsheets/d/\${SHEET_ID}/gviz/tq?tqx=out:csv&gid=1979579639\`;
         
         const TOTALS = { 
-            q1: { meetings: 6, projects: 5 },   // Jul-Sep: 3 business + 3 fellowship, 5 projects tracked
-            q2: { meetings: 4, projects: 5 },   // Oct-Dec: 2 business + 2 fellowship, 5 projects tracked
-            q3: { meetings: 0, projects: 0 },   // Jan-Mar: update as meetings occur
-            q4: { meetings: 0, projects: 0 },   // Apr-Jun: update as meetings occur
-            h1: { meetings: 10, projects: 10 }, // Q1+Q2
-            h2: { meetings: 0, projects: 0 },   // Q3+Q4
-            annual: { meetings: 10, projects: 10 }, // Full year (update as year progresses)
+            q1: { meetings: 6, projects: 5 },
+            q2: { meetings: 4, projects: 5 },
+            q3: { meetings: 0, projects: 0 },
+            q4: { meetings: 0, projects: 0 },
+            h1: { meetings: 10, projects: 10 },
+            h2: { meetings: 0, projects: 0 },
+            annual: { meetings: 10, projects: 10 },
             elections: { meetings: 3, projects: 0 } 
         };
         const NEW_MEMBERS_DEC7 = ['Brittany Ross', 'Patrick Bacchus', 'Randolph Benn'];
@@ -383,7 +383,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
         // Data Loading Functions
         async function fetchCSV(url, name) {
             const response = await fetch(url);
-            if (!response.ok) throw new Error(`\${name}: HTTP \${response.status}`);
+            if (!response.ok) throw new Error(\`\${name}: HTTP \${response.status}\`);
             const text = await response.text();
             return new Promise(resolve => { Papa.parse(text, { header: false, skipEmptyLines: true, complete: r => resolve(r.data) }); });
         }
@@ -423,7 +423,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 console.error('Load error:', error);
                 document.getElementById('loadingMessage').style.display = 'none';
                 document.getElementById('errorMessage').style.display = 'block';
-                document.getElementById('errorMessage').innerHTML = `<h3>âš ï¸ Error Loading Data</h3><p>\${error.message}</p><p style="margin-top:15px;">Make sure your Google Sheet sharing is set to "Anyone with the link"</p><p><a href="https://docs.google.com/spreadsheets/d/\${SHEET_ID}/edit" target="_blank">Open Google Sheet</a></p>`;
+                document.getElementById('errorMessage').innerHTML = \`<h3>âš ï¸ Error Loading Data</h3><p>\${error.message}</p><p style="margin-top:15px;">Make sure your Google Sheet sharing is set to "Anyone with the link"</p><p><a href="https://docs.google.com/spreadsheets/d/\${SHEET_ID}/edit" target="_blank">Open Google Sheet</a></p>\`;
             }
         }
         
@@ -455,7 +455,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 const r = data[i];
                 if (r[0] && r[0].includes('QUARTER BOARD MEETING')) { currentQuarter++; continue; }
                 if (r[0] === 'First Name' || !r[0] || r[0] === 'Total') continue;
-                const name = `\${(r[0] || '').trim()} \${(r[1] || '').trim()}`.trim();
+                const name = \`\${(r[0] || '').trim()} \${(r[1] || '').trim()}\`.trim();
                 if (!name || name === ' ') continue;
                 if (!boardAttendance[name]) boardAttendance[name] = { total: 0, q1: 0, q2: 0, q3: 0, q4: 0 };
                 let qTotal = 0;
@@ -476,7 +476,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             for (let i = (hdr >= 0 ? hdr : 1) + 1; i < data.length; i++) {
                 const r = data[i];
                 if (!r[0] || r[0] === 'First Name' || r[0] === 'NaN') continue;
-                const name = `\${(r[0]||'').trim()} \${(r[1]||'').trim()}`.trim();
+                const name = \`\${(r[0]||'').trim()} \${(r[1]||'').trim()}\`.trim();
                 if (!name || name === 'NaN NaN') continue;
                 if (NEW_MEMBERS_DEC7.includes(name)) continue;
                 let g = map.get(name);
@@ -505,7 +505,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             const d = new Date(dateStr);
             if (isNaN(d)) return 'N/A';
             const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            return `\${d.getDate()} \${months[d.getMonth()]} \${d.getFullYear()}`;
+            return \`\${d.getDate()} \${months[d.getMonth()]} \${d.getFullYear()}\`;
         }
         
         function calculateAge(dateStr) {
@@ -615,7 +615,6 @@ const HTML_CONTENT = `<!DOCTYPE html>
                         if (p === 'annual') return ['Q1', 'Q2', 'Q3', 'Q4'].includes(a.quarter);
                         return a.quarter === p.toUpperCase();
                     });
-                    // Count both Business Meeting and Fellowship Meeting as regular meetings
                     m.meetings[p] = att.filter(a => a.type === 'Business Meeting' || a.type === 'Fellowship Meeting').length;
                     m.projects[p] = att.filter(a => a.type === 'Project').length;
                     m.meetingDetails[p] = att.filter(a => a.type === 'Business Meeting' || a.type === 'Fellowship Meeting').map(a => ({ date: a.dateKey, type: a.type }));
@@ -639,7 +638,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
         function switchTab(tab) {
             currentTab = tab;
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelector(`.tab.\${tab}`).classList.add('active');
+            document.querySelector(\`.tab.\${tab}\`).classList.add('active');
             
             document.getElementById('membersSection').style.display = tab === 'members' ? 'block' : 'none';
             document.getElementById('guestsSection').style.display = tab === 'guests' ? 'block' : 'none';
@@ -730,7 +729,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             if (m.isBoardMember && m.boardMeetings) {
                 const bp = currentPeriod === 'h1' ? (m.boardMeetings.q1 + m.boardMeetings.q2) : m.boardMeetings[currentPeriod];
                 const btotal = currentPeriod === 'h1' ? 6 : 3;
-                boardSection = `
+                boardSection = \`
                     <div class="progress-row">
                         <span class="progress-label">Board Mtgs</span>
                         <div class="progress-bar">
@@ -738,10 +737,10 @@ const HTML_CONTENT = `<!DOCTYPE html>
                         </div>
                         <span class="progress-value">\${bp}/\${btotal} (\${Math.round((bp/btotal)*100)}%)</span>
                     </div>
-                `;
+                \`;
             }
             
-            return `
+            return \`
                 <div class="member-card \${statusClass}" onclick="showMemberDetails('\${m.fullName.replace(/'/g, "\\\\'")}')">
                     <div class="card-actions">
                         <button class="card-action-btn" onclick="event.stopPropagation(); exportMemberCard('\${m.fullName.replace(/'/g, "\\\\'")}')">ðŸ“„ Export</button>
@@ -769,7 +768,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     </div>
                     \${boardSection}
                 </div>
-            `;
+            \`;
         }
         
         function renderGuests() {
@@ -800,7 +799,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             const statusClass = eligible ? 'eligible' : g.ug ? 'guest' : 'notug';
             const statusText = eligible ? 'âœ… Eligible' : !g.info ? 'ðŸ“ Info Session Needed' : !g.ug ? 'âŒ Not UG' : 'â³ In Progress';
             
-            return `
+            return \`
                 <div class="member-card \${statusClass}">
                     <div class="card-header">
                         <div>
@@ -831,7 +830,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                         <div class="check-item \${g.ug ? 'check-done' : 'check-pending'}">\${g.ug ? 'âœ…' : 'âŒ'} UG Student/Graduate</div>
                     </div>
                 </div>
-            `;
+            \`;
         }
         
         // Modal Functions
@@ -843,16 +842,16 @@ const HTML_CONTENT = `<!DOCTYPE html>
             const content = document.getElementById('modalContent');
             
             const attendedList = m.meetingDetails[currentPeriod].map(md => 
-                `<div class="meeting-item"><span class="meeting-date">\${md.date}</span><span class="meeting-type">\${md.type}</span></div>`
+                \`<div class="meeting-item"><span class="meeting-date">\${md.date}</span><span class="meeting-type">\${md.type}</span></div>\`
             ).join('') || '<div style="color:#95a5a6;">No meetings attended</div>';
             
             const missedList = m.missedMeetings[currentPeriod].map(date => 
-                `<div class="meeting-item" style="color:#e74c3c;"><span class="meeting-date">\${date}</span><span class="meeting-type">Missed</span></div>`
+                \`<div class="meeting-item" style="color:#e74c3c;"><span class="meeting-date">\${date}</span><span class="meeting-type">Missed</span></div>\`
             ).join('') || '<div style="color:#27ae60;">No meetings missed</div>';
             
             let boardSection = '';
             if (m.isBoardMember && m.boardMeetings) {
-                boardSection = `
+                boardSection = \`
                     <div class="detail-section">
                         <div class="detail-title">
                             <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
@@ -873,14 +872,14 @@ const HTML_CONTENT = `<!DOCTYPE html>
                             </div>
                         </div>
                     </div>
-                `;
+                \`;
             }
             
-            content.innerHTML = `
+            content.innerHTML = \`
                 <div class="modal-header">
                     <div class="modal-name">\${m.fullName}</div>
                     <div class="modal-email">\${m.email || 'No email on file'}</div>
-                    \${m.contact ? `<div class="modal-contact">ðŸ“ž \${m.contact}</div>` : ''}
+                    \${m.contact ? \`<div class="modal-contact">ðŸ“ž \${m.contact}</div>\` : ''}
                 </div>
                 
                 <div class="detail-section">
@@ -891,7 +890,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     <div class="detail-grid">
                         <div class="detail-card">
                             <div class="detail-label">Birthday</div>
-                            <div class="detail-value">\${formatDate(m.dateOfBirth)} \${m.age ? `(Age \${m.age})` : ''}</div>
+                            <div class="detail-value">\${formatDate(m.dateOfBirth)} \${m.age ? \`(Age \${m.age})\` : ''}</div>
                         </div>
                         <div class="detail-card">
                             <div class="detail-label">Date Inducted</div>
@@ -959,7 +958,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                         </div>
                     </div>
                 </div>
-            `;
+            \`;
             
             modal.style.display = 'flex';
         }
@@ -978,7 +977,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             // Show member in temporary printable div
             const printDiv = document.createElement('div');
             printDiv.style.cssText = 'position:fixed;left:-9999px;width:800px;padding:40px;background:white;color:black;';
-            printDiv.innerHTML = `
+            printDiv.innerHTML = \`
                 <div style="text-align:center;margin-bottom:30px;">
                     <h1 style="color:#e91e63;margin:0;">Rotaract Club of University of Guyana</h1>
                     <h2 style="color:#666;margin:10px 0 0 0;">Member Attendance Report</h2>
@@ -992,17 +991,17 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     <h3>Attendance Summary (Half 1)</h3>
                     <p><strong>Meetings:</strong> \${m.meetings.h1}/\${TOTALS.h1.meetings} (\${Math.round((m.meetings.h1/TOTALS.h1.meetings)*100)}%)</p>
                     <p><strong>Projects:</strong> \${m.projects.h1}/\${TOTALS.h1.projects} (\${Math.round((m.projects.h1/TOTALS.h1.projects)*100)}%)</p>
-                    \${m.isBoardMember && m.boardMeetings ? `<p><strong>Board Meetings:</strong> \${m.boardMeetings.q1 + m.boardMeetings.q2}/6</p>` : ''}
+                    \${m.isBoardMember && m.boardMeetings ? \`<p><strong>Board Meetings:</strong> \${m.boardMeetings.q1 + m.boardMeetings.q2}/6</p>\` : ''}
                     <hr>
                     <h3>Meetings Attended</h3>
-                    <ul>\${m.meetingDetails.h1.map(md => `<li>\${md.date} - \${md.type}</li>`).join('') || '<li>None</li>'}</ul>
+                    <ul>\${m.meetingDetails.h1.map(md => \`<li>\${md.date} - \${md.type}</li>\`).join('') || '<li>None</li>'}</ul>
                     <h3>Meetings Missed</h3>
-                    <ul>\${m.missedMeetings.h1.map(d => `<li>\${d}</li>`).join('') || '<li>None</li>'}</ul>
+                    <ul>\${m.missedMeetings.h1.map(d => \`<li>\${d}</li>\`).join('') || '<li>None</li>'}</ul>
                 </div>
                 <div style="text-align:center;margin-top:20px;color:#666;font-size:12px;">
                     Generated: \${new Date().toLocaleString()}
                 </div>
-            `;
+            \`;
             document.body.appendChild(printDiv);
             
             try {
@@ -1015,7 +1014,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 const imgHeight = (canvas.height * imgWidth) / canvas.width;
                 
                 pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-                pdf.save(`\${m.fullName.replace(/\s+/g, '_')}_Attendance_Card.pdf`);
+                pdf.save(\`\${m.fullName.replace(/\s+/g, '_')}_Attendance_Card.pdf\`);
             } catch (error) {
                 console.error('Export error:', error);
                 alert('Error generating PDF. Please try again.');
@@ -1057,7 +1056,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             }
             
             btn.disabled = false;
-            table.innerHTML = `
+            table.innerHTML = \`
                 <table>
                     <thead>
                         <tr>
@@ -1068,17 +1067,17 @@ const HTML_CONTENT = `<!DOCTYPE html>
                         </tr>
                     </thead>
                     <tbody>
-                        \${birthdays.map(m => `
+                        \${birthdays.map(m => \`
                             <tr>
                                 <td>\${m.fullName}</td>
                                 <td>\${formatDate(m.dateOfBirth)}</td>
                                 <td>\${m.age || 'N/A'}</td>
                                 <td>\${m.email || 'N/A'}</td>
                             </tr>
-                        `).join('')}
+                        \`).join('')}
                     </tbody>
                 </table>
-            `;
+            \`;
         }
         
         function updateAnniversaryReport() {
@@ -1106,7 +1105,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             }
             
             btn.disabled = false;
-            table.innerHTML = `
+            table.innerHTML = \`
                 <table>
                     <thead>
                         <tr>
@@ -1117,17 +1116,17 @@ const HTML_CONTENT = `<!DOCTYPE html>
                         </tr>
                     </thead>
                     <tbody>
-                        \${anniversaries.map(m => `
+                        \${anniversaries.map(m => \`
                             <tr>
                                 <td>\${m.fullName}</td>
                                 <td>\${formatDate(m.dateInducted)}</td>
                                 <td>\${getYearsOfService(m.dateInducted) || 0} years</td>
                                 <td>\${m.email || 'N/A'}</td>
                             </tr>
-                        `).join('')}
+                        \`).join('')}
                     </tbody>
                 </table>
-            `;
+            \`;
         }
         
         function updateAttendanceWarningReport() {
@@ -1149,7 +1148,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 return;
             }
             
-            table.innerHTML = `
+            table.innerHTML = \`
                 <table>
                     <thead>
                         <tr>
@@ -1163,7 +1162,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     <tbody>
                         \${atRisk.map(m => {
                             const pct = Math.round((m.meetings[period] / TOTALS[period].meetings) * 100);
-                            return `
+                            return \`
                                 <tr>
                                     <td>\${m.fullName}</td>
                                     <td>\${m.meetings[period]}/\${TOTALS[period].meetings}</td>
@@ -1171,11 +1170,11 @@ const HTML_CONTENT = `<!DOCTYPE html>
                                     <td>\${m.projects[period]}/\${TOTALS[period].projects}</td>
                                     <td>\${m.email || 'N/A'}</td>
                                 </tr>
-                            `;
+                            \`;
                         }).join('')}
                     </tbody>
                 </table>
-            `;
+            \`;
         }
         
         function updateGuestEligibilityReport() {
@@ -1187,7 +1186,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 return;
             }
             
-            table.innerHTML = `
+            table.innerHTML = \`
                 <table>
                     <thead>
                         <tr>
@@ -1200,7 +1199,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                         </tr>
                     </thead>
                     <tbody>
-                        \${eligible.map(g => `
+                        \${eligible.map(g => \`
                             <tr>
                                 <td>\${g.fullName}</td>
                                 <td>\${g.meetings}/\${TOTALS.h1.meetings}</td>
@@ -1209,10 +1208,10 @@ const HTML_CONTENT = `<!DOCTYPE html>
                                 <td style="color:#27ae60">\${g.committee ? 'âœ…' : 'âŒ'}</td>
                                 <td style="color:#27ae60">\${g.ug ? 'âœ…' : 'âŒ'}</td>
                             </tr>
-                        `).join('')}
+                        \`).join('')}
                     </tbody>
                 </table>
-            `;
+            \`;
         }
         
         // PDF Export Functions
@@ -1232,7 +1231,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             
             pdf.setFontSize(16);
             pdf.setTextColor(100, 100, 100);
-            pdf.text(`\${monthNames[month]} Birthdays`, 105, 30, { align: 'center' });
+            pdf.text(\`\${monthNames[month]} Birthdays\`, 105, 30, { align: 'center' });
             
             pdf.setFontSize(10);
             pdf.setTextColor(0, 0, 0);
@@ -1243,17 +1242,17 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     pdf.addPage();
                     y = 20;
                 }
-                pdf.text(`\${m.fullName}`, 20, y);
-                pdf.text(`\${formatDate(m.dateOfBirth)}`, 100, y);
-                pdf.text(`Age: \${m.age || 'N/A'}`, 150, y);
+                pdf.text(\`\${m.fullName}\`, 20, y);
+                pdf.text(\`\${formatDate(m.dateOfBirth)}\`, 100, y);
+                pdf.text(\`Age: \${m.age || 'N/A'}\`, 150, y);
                 y += 7;
             });
             
             pdf.setFontSize(8);
             pdf.setTextColor(150, 150, 150);
-            pdf.text(`Generated: \${new Date().toLocaleString()}`, 105, 285, { align: 'center' });
+            pdf.text(\`Generated: \${new Date().toLocaleString()}\`, 105, 285, { align: 'center' });
             
-            pdf.save(`RCUG_Birthdays_\${monthNames[month]}_\${new Date().getFullYear()}.pdf`);
+            pdf.save(\`RCUG_Birthdays_\${monthNames[month]}_\${new Date().getFullYear()}.pdf\`);
         }
         
         async function generateAnniversaryPDF() {
@@ -1272,7 +1271,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             
             pdf.setFontSize(16);
             pdf.setTextColor(100, 100, 100);
-            pdf.text(`\${monthNames[month]} Induction Anniversaries`, 105, 30, { align: 'center' });
+            pdf.text(\`\${monthNames[month]} Induction Anniversaries\`, 105, 30, { align: 'center' });
             
             pdf.setFontSize(10);
             pdf.setTextColor(0, 0, 0);
@@ -1283,17 +1282,17 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     pdf.addPage();
                     y = 20;
                 }
-                pdf.text(`\${m.fullName}`, 20, y);
-                pdf.text(`\${formatDate(m.dateInducted)}`, 100, y);
-                pdf.text(`\${getYearsOfService(m.dateInducted) || 0} years`, 160, y);
+                pdf.text(\`\${m.fullName}\`, 20, y);
+                pdf.text(\`\${formatDate(m.dateInducted)}\`, 100, y);
+                pdf.text(\`\${getYearsOfService(m.dateInducted) || 0} years\`, 160, y);
                 y += 7;
             });
             
             pdf.setFontSize(8);
             pdf.setTextColor(150, 150, 150);
-            pdf.text(`Generated: \${new Date().toLocaleString()}`, 105, 285, { align: 'center' });
+            pdf.text(\`Generated: \${new Date().toLocaleString()}\`, 105, 285, { align: 'center' });
             
-            pdf.save(`RCUG_Anniversaries_\${monthNames[month]}_\${new Date().getFullYear()}.pdf`);
+            pdf.save(\`RCUG_Anniversaries_\${monthNames[month]}_\${new Date().getFullYear()}.pdf\`);
         }
         
         async function generateAttendanceWarningPDF() {
@@ -1322,7 +1321,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             
             pdf.setFontSize(12);
             pdf.setTextColor(100, 100, 100);
-            pdf.text(`Period: \${period.toUpperCase()}`, 105, 38, { align: 'center' });
+            pdf.text(\`Period: \${period.toUpperCase()}\`, 105, 38, { align: 'center' });
             
             pdf.setFontSize(10);
             pdf.setTextColor(0, 0, 0);
@@ -1334,19 +1333,19 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     y = 20;
                 }
                 const pct = Math.round((m.meetings[period] / TOTALS[period].meetings) * 100);
-                pdf.text(`\${m.fullName}`, 20, y);
-                pdf.text(`\${m.meetings[period]}/\${TOTALS[period].meetings}`, 120, y);
+                pdf.text(\`\${m.fullName}\`, 20, y);
+                pdf.text(\`\${m.meetings[period]}/\${TOTALS[period].meetings}\`, 120, y);
                 pdf.setTextColor(pct < 50 ? 231 : 230, pct < 50 ? 76 : 126, pct < 50 ? 60 : 34);
-                pdf.text(`\${pct}%`, 160, y);
+                pdf.text(\`\${pct}%\`, 160, y);
                 pdf.setTextColor(0, 0, 0);
                 y += 7;
             });
             
             pdf.setFontSize(8);
             pdf.setTextColor(150, 150, 150);
-            pdf.text(`Generated: \${new Date().toLocaleString()}`, 105, 285, { align: 'center' });
+            pdf.text(\`Generated: \${new Date().toLocaleString()}\`, 105, 285, { align: 'center' });
             
-            pdf.save(`RCUG_Attendance_Warning_\${period.toUpperCase()}_\${new Date().getFullYear()}.pdf`);
+            pdf.save(\`RCUG_Attendance_Warning_\${period.toUpperCase()}_\${new Date().getFullYear()}.pdf\`);
         }
         
         function generateAttendanceWarningCSV() {
@@ -1365,14 +1364,14 @@ const HTML_CONTENT = `<!DOCTYPE html>
             let csv = 'Name,Meetings Attended,Total Meetings,Attendance %,Projects,Email\\n';
             atRisk.forEach(m => {
                 const pct = Math.round((m.meetings[period] / TOTALS[period].meetings) * 100);
-                csv += `"\${m.fullName}",\${m.meetings[period]},\${TOTALS[period].meetings},\${pct}%,\${m.projects[period]},"\${m.email || 'N/A'}"\\n`;
+                csv += \`"\${m.fullName}",\${m.meetings[period]},\${TOTALS[period].meetings},\${pct}%,\${m.projects[period]},"\${m.email || 'N/A'}"\\n\`;
             });
             
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `RCUG_Attendance_Warning_\${period.toUpperCase()}_\${new Date().getFullYear()}.csv`;
+            a.download = \`RCUG_Attendance_Warning_\${period.toUpperCase()}_\${new Date().getFullYear()}.csv\`;
             a.click();
         }
         
@@ -1404,9 +1403,9 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     pdf.addPage();
                     y = 20;
                 }
-                pdf.text(`\${g.fullName}`, 20, y);
-                pdf.text(`Mtgs: \${g.meetings}/\${TOTALS.h1.meetings}`, 100, y);
-                pdf.text(`Proj: \${g.projects}/\${TOTALS.h1.projects}`, 140, y);
+                pdf.text(\`\${g.fullName}\`, 20, y);
+                pdf.text(\`Mtgs: \${g.meetings}/\${TOTALS.h1.meetings}\`, 100, y);
+                pdf.text(\`Proj: \${g.projects}/\${TOTALS.h1.projects}\`, 140, y);
                 pdf.setTextColor(39, 174, 96);
                 pdf.text('âœ“ Ready', 170, y);
                 pdf.setTextColor(0, 0, 0);
@@ -1415,9 +1414,9 @@ const HTML_CONTENT = `<!DOCTYPE html>
             
             pdf.setFontSize(8);
             pdf.setTextColor(150, 150, 150);
-            pdf.text(`Generated: \${new Date().toLocaleString()}`, 105, 285, { align: 'center' });
+            pdf.text(\`Generated: \${new Date().toLocaleString()}\`, 105, 285, { align: 'center' });
             
-            pdf.save(`RCUG_Guest_Eligibility_\${new Date().getFullYear()}.pdf`);
+            pdf.save(\`RCUG_Guest_Eligibility_\${new Date().getFullYear()}.pdf\`);
         }
         
         function generateGuestEligibilityCSV() {
@@ -1430,14 +1429,14 @@ const HTML_CONTENT = `<!DOCTYPE html>
             
             let csv = 'Name,Meetings,Projects,Info Session,Committee,UG Status\\n';
             eligible.forEach(g => {
-                csv += `"\${g.fullName}",\${g.meetings},\${g.projects},\${g.info ? 'Yes' : 'No'},\${g.committee ? 'Yes' : 'No'},\${g.ug ? 'Yes' : 'No'}\\n`;
+                csv += \`"\${g.fullName}",\${g.meetings},\${g.projects},\${g.info ? 'Yes' : 'No'},\${g.committee ? 'Yes' : 'No'},\${g.ug ? 'Yes' : 'No'}\\n\`;
             });
             
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `RCUG_Guest_Eligibility_\${new Date().getFullYear()}.csv`;
+            a.download = \`RCUG_Guest_Eligibility_\${new Date().getFullYear()}.csv\`;
             a.click();
         }
         
@@ -1446,4 +1445,4 @@ const HTML_CONTENT = `<!DOCTYPE html>
     </script>
 </body>
 </html>
-`;
+\`;
