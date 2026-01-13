@@ -83,6 +83,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
         .badge-board { background: #3498db; color: #fff; }
         .badge-nodata { background: #e74c3c; color: #fff; }
         .badge-terminated { background: #7f8c8d; color: #fff; }
+        .badge-onleave { background: #f39c12; color: #fff; }
         .status-badge { padding: 4px 10px; border-radius: 15px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; }
         .status-good { background: #27ae60; }
         .status-notgood { background: #e74c3c; }
@@ -93,6 +94,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
         .status-eligible { background: #9b59b6; }
         .status-nodata { background: #c0392b; }
         .status-terminated { background: #7f8c8d; }
+        .status-onleave { background: #f39c12; }
         
         /* Progress Bars */
         .progress-row { display: flex; align-items: center; margin-bottom: 8px; font-size: 0.85rem; }
@@ -201,6 +203,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                             <option value="all">All Statuses</option>
                             <option value="good">Good Standing</option>
                             <option value="notgood">Not Good Standing</option>
+                            <option value="onleave">On Leave</option>
                             <option value="terminated">Terminated</option>
                         </select>
                         <select id="periodFilter" class="filter-select">
@@ -211,7 +214,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                             <option value="q4">Quarter 4 (Apr-Jun)</option>
                             <option value="h2">Half 2 (Q3 + Q4)</option>
                             <option value="annual">Annual (Full Year)</option>
-                            <option value="elections">Elections Period</option>
+                            <option value="elections">Elections (Q1+Q2+Jan)</option>
                         </select>
                         <button class="refresh-btn" onclick="loadAllData()">🔄 Refresh</button>
                     </div>
@@ -380,6 +383,25 @@ const HTML_CONTENT = `<!DOCTYPE html>
         
         let members = [], guests = [], allAttendance = [], boardAttendance = {}, currentTab = 'members', currentPeriod = 'h1';
         let projectTotals = { q1: 0, q2: 0, q3: 0, q4: 0, h1: 0, h2: 0, annual: 0, elections: 0 };
+        let meetingTotals = { q1: 0, q2: 0, q3: 0, q4: 0, h1: 0, h2: 0, annual: 0, elections: 0 };
+        
+        // Calculate dynamic meeting totals from attendance data
+        function calculateMeetingTotals() {
+            const periods = ['q1', 'q2', 'q3', 'q4', 'h1', 'h2', 'annual', 'elections'];
+            periods.forEach(p => {
+                const meetingDates = allAttendance.filter(a => {
+                    const isRegularMeeting = a.type === 'Business Meeting' || a.type === 'Fellowship Meeting';
+                    if (!isRegularMeeting) return false;
+                    // Elections = Q1 + Q2 + January meetings
+                    if (p === 'elections') return a.quarter === 'Q1' || a.quarter === 'Q2' || a.month === 1;
+                    if (p === 'h1') return a.quarter === 'Q1' || a.quarter === 'Q2';
+                    if (p === 'h2') return a.quarter === 'Q3' || a.quarter === 'Q4';
+                    if (p === 'annual') return ['Q1', 'Q2', 'Q3', 'Q4'].includes(a.quarter);
+                    return a.quarter === p.toUpperCase();
+                }).map(a => a.dateKey).filter((v, i, arr) => arr.indexOf(v) === i);
+                meetingTotals[p] = meetingDates.length;
+            });
+        }
         
         // Calculate dynamic project totals from attendance data
         function calculateProjectTotals() {
@@ -387,7 +409,8 @@ const HTML_CONTENT = `<!DOCTYPE html>
             periods.forEach(p => {
                 const projectDates = allAttendance.filter(a => {
                     if (a.type !== 'Project') return false;
-                    if (p === 'elections') return a.quarter === 'Elections Period';
+                    // Elections = Q1 + Q2 + January projects
+                    if (p === 'elections') return a.quarter === 'Q1' || a.quarter === 'Q2' || a.month === 1;
                     if (p === 'h1') return a.quarter === 'Q1' || a.quarter === 'Q2';
                     if (p === 'h2') return a.quarter === 'Q3' || a.quarter === 'Q4';
                     if (p === 'annual') return ['Q1', 'Q2', 'Q3', 'Q4'].includes(a.quarter);
@@ -422,6 +445,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 
                 processAttendance(attData);
                 calculateProjectTotals();
+                calculateMeetingTotals();
                 processBoard(boardData);
                 processGuests(guestData);
                 processMembers(memberData);
@@ -510,10 +534,10 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 if (r[2] && r[2] !== g.status) g.status = r[2];
             }
             map.forEach(g => {
-                g.meetings = Math.min(g.meetings, TOTALS.h1.meetings);
-                g.projects = Math.min(g.projects, TOTALS.h1.projects);
-                g.meetPct = (g.meetings / TOTALS.h1.meetings) * 100;
-                g.projPct = (g.projects / TOTALS.h1.projects) * 100;
+                const meetTotal = TOTALS.h1.meetings || 1;
+                const projTotal = projectTotals.h1 || 1;
+                g.meetPct = meetTotal > 0 ? (g.meetings / meetTotal) * 100 : 0;
+                g.projPct = projTotal > 0 ? (g.projects / projTotal) * 100 : 0;
                 guests.push(g);
             });
         }
@@ -579,6 +603,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 const isBoardMember = BOARD_MEMBERS.includes(name);
                 const registryStatus = (r[10] || '').toString().trim();
                 const isTerminated = registryStatus.toLowerCase().includes('terminated');
+                const isOnLeave = registryStatus.toLowerCase().includes('leave');
                 
                 members.push({
                     fullName: name, 
@@ -600,6 +625,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     isNewDec7, 
                     isBoardMember, 
                     isTerminated,
+                    isOnLeave,
                     meetings: { q1: 0, q2: 0, q3: 0, q4: 0, h1: 0, h2: 0, annual: 0, elections: 0 },
                     projects: { q1: 0, q2: 0, q3: 0, q4: 0, h1: 0, h2: 0, annual: 0, elections: 0 },
                     meetingDetails: { q1: [], q2: [], q3: [], q4: [], h1: [], h2: [], annual: [], elections: [] },
@@ -627,7 +653,8 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 ['q1', 'q2', 'q3', 'q4', 'h1', 'h2', 'annual', 'elections'].forEach(p => {
                     const att = allAttendance.filter(a => {
                         if (a.name !== m.fullName) return false;
-                        if (p === 'elections') return a.quarter === 'Elections Period';
+                        // Elections = Q1 + Q2 + January meetings (month 1)
+                        if (p === 'elections') return a.quarter === 'Q1' || a.quarter === 'Q2' || a.month === 1;
                         if (p === 'h1') return a.quarter === 'Q1' || a.quarter === 'Q2';
                         if (p === 'h2') return a.quarter === 'Q3' || a.quarter === 'Q4';
                         if (p === 'annual') return ['Q1', 'Q2', 'Q3', 'Q4'].includes(a.quarter);
@@ -639,7 +666,8 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     
                     const allMeetingDates = allAttendance.filter(a => {
                         const isRegularMeeting = a.type === 'Business Meeting' || a.type === 'Fellowship Meeting';
-                        if (p === 'elections') return isRegularMeeting && a.quarter === 'Elections Period';
+                        // Elections = Q1 + Q2 + January meetings
+                        if (p === 'elections') return isRegularMeeting && (a.quarter === 'Q1' || a.quarter === 'Q2' || a.month === 1);
                         if (p === 'h1') return isRegularMeeting && (a.quarter === 'Q1' || a.quarter === 'Q2');
                         if (p === 'h2') return isRegularMeeting && (a.quarter === 'Q3' || a.quarter === 'Q4');
                         if (p === 'annual') return isRegularMeeting && ['Q1', 'Q2', 'Q3', 'Q4'].includes(a.quarter);
@@ -708,17 +736,18 @@ const HTML_CONTENT = `<!DOCTYPE html>
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             
             let filtered = members.filter(m => {
-                if (statusFilter === 'good' && !isGoodStanding(m)) return false;
-                if (statusFilter === 'notgood' && isGoodStanding(m)) return false;
+                if (statusFilter === 'good' && (!isGoodStanding(m) || m.isOnLeave)) return false;
+                if (statusFilter === 'notgood' && (isGoodStanding(m) || m.isOnLeave || m.isTerminated)) return false;
+                if (statusFilter === 'onleave' && !m.isOnLeave) return false;
                 if (statusFilter === 'terminated' && !m.isTerminated) return false;
                 if (searchTerm && !m.fullName.toLowerCase().includes(searchTerm)) return false;
                 return true;
             });
             
-            // Update stats
+            // Update stats - On Leave members are excluded from Good/Needs counts
             document.getElementById('totalMembers').textContent = members.filter(m => !m.isTerminated).length;
-            document.getElementById('goodStanding').textContent = members.filter(m => !m.isTerminated && isGoodStanding(m)).length;
-            document.getElementById('needsWork').textContent = members.filter(m => !m.isTerminated && !isGoodStanding(m)).length;
+            document.getElementById('goodStanding').textContent = members.filter(m => !m.isTerminated && !m.isOnLeave && isGoodStanding(m)).length;
+            document.getElementById('needsWork').textContent = members.filter(m => !m.isTerminated && !m.isOnLeave && !isGoodStanding(m)).length;
             
             const grid = document.getElementById('memberGrid');
             grid.innerHTML = filtered.map(m => renderMemberCard(m)).join('');
@@ -726,23 +755,27 @@ const HTML_CONTENT = `<!DOCTYPE html>
         
         function isGoodStanding(m) {
             if (m.isTerminated) return false;
-            const pct = (m.meetings[currentPeriod] / TOTALS[currentPeriod].meetings) * 100;
+            const meetTotal = meetingTotals[currentPeriod] || TOTALS[currentPeriod].meetings || 1;
+            const pct = meetTotal > 0 ? (m.meetings[currentPeriod] / meetTotal) * 100 : 0;
             return pct >= 60;
         }
         
         function renderMemberCard(m) {
-            const pct = (m.meetings[currentPeriod] / TOTALS[currentPeriod].meetings) * 100;
+            const meetTotal = meetingTotals[currentPeriod] || TOTALS[currentPeriod].meetings || 1;
+            const pct = meetTotal > 0 ? (m.meetings[currentPeriod] / meetTotal) * 100 : 0;
             const projTotal = projectTotals[currentPeriod] || 0;
             const projPct = projTotal > 0 ? (m.projects[currentPeriod] / projTotal) * 100 : 0;
             
             let statusClass = 'good', statusText = 'Good Standing';
             if (m.isTerminated) { statusClass = 'terminated'; statusText = 'Terminated'; }
+            else if (m.isOnLeave) { statusClass = 'onleave'; statusText = 'On Leave'; }
             else if (pct < 60) { statusClass = 'notgood'; statusText = 'Not Good Standing'; }
             
             const badges = [];
             if (m.isNewDec7) badges.push('<span class="badge badge-new">NEW</span>');
             if (m.isBoardMember) badges.push('<span class="badge badge-board">BOARD</span>');
             if (m.isTerminated) badges.push('<span class="badge badge-terminated">TERMINATED</span>');
+            if (m.isOnLeave) badges.push('<span class="badge badge-onleave">ON LEAVE</span>');
             
             let boardSection = '';
             if (m.isBoardMember && m.boardMeetings) {
@@ -750,6 +783,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 if (currentPeriod === 'h1') { bp = (m.boardMeetings.q1 || 0) + (m.boardMeetings.q2 || 0); btotal = 6; }
                 else if (currentPeriod === 'h2') { bp = (m.boardMeetings.q3 || 0) + (m.boardMeetings.q4 || 0); btotal = 6; }
                 else if (currentPeriod === 'annual') { bp = (m.boardMeetings.total || 0); btotal = 12; }
+                else if (currentPeriod === 'elections') { bp = (m.boardMeetings.q1 || 0) + (m.boardMeetings.q2 || 0) + (m.boardMeetings.q3 || 0); btotal = 9; }
                 else { bp = (m.boardMeetings[currentPeriod] || 0); btotal = 3; }
                 boardSection = \`
                     <div class="progress-row">
@@ -779,7 +813,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                         <div class="progress-bar">
                             <div class="progress-fill meetings" style="width: \${pct}%"></div>
                         </div>
-                        <span class="progress-value">\${m.meetings[currentPeriod]}/\${TOTALS[currentPeriod].meetings} (\${Math.round(pct)}%)</span>
+                        <span class="progress-value">\${m.meetings[currentPeriod]}/\${meetTotal} (\${Math.round(pct)}%)</span>
                     </div>
                     <div class="progress-row">
                         <span class="progress-label">Projects</span>
@@ -813,7 +847,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
         }
         
         function isEligible(g) {
-            return g.meetings >= 3 && g.projects >= 2 && g.info && g.committee && g.ug;
+            return g.meetPct >= 60 && g.projPct >= 50 && g.info && g.committee && g.ug;
         }
         
         function renderGuestCard(g) {
@@ -833,20 +867,20 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     <div class="progress-row">
                         <span class="progress-label">Meetings</span>
                         <div class="progress-bar">
-                            <div class="progress-fill meetings" style="width: \${g.meetPct}%"></div>
+                            <div class="progress-fill meetings" style="width: \${Math.min(g.meetPct, 100)}%"></div>
                         </div>
                         <span class="progress-value">\${g.meetings}/\${TOTALS.h1.meetings} (\${Math.round(g.meetPct)}%)</span>
                     </div>
                     <div class="progress-row">
                         <span class="progress-label">Projects</span>
                         <div class="progress-bar">
-                            <div class="progress-fill projects" style="width: \${g.projPct}%"></div>
+                            <div class="progress-fill projects" style="width: \${Math.min(g.projPct, 100)}%"></div>
                         </div>
-                        <span class="progress-value">\${g.projects}/\${TOTALS.h1.projects} (\${Math.round(g.projPct)}%)</span>
+                        <span class="progress-value">\${g.projects}/\${projectTotals.h1 || 0} (\${Math.round(g.projPct)}%)</span>
                     </div>
                     <div class="checklist">
-                        <div class="check-item \${g.meetings >= 3 ? 'check-done' : 'check-pending'}">\${g.meetings >= 3 ? '✅' : '❌'} 3+ Business Meetings</div>
-                        <div class="check-item \${g.projects >= 2 ? 'check-done' : 'check-pending'}">\${g.projects >= 2 ? '✅' : '❌'} 2+ Projects</div>
+                        <div class="check-item \${g.meetPct >= 60 ? 'check-done' : 'check-pending'}">\${g.meetPct >= 60 ? '✅' : '❌'} 60% Meetings (\${Math.round(g.meetPct)}%)</div>
+                        <div class="check-item \${g.projPct >= 50 ? 'check-done' : 'check-pending'}">\${g.projPct >= 50 ? '✅' : '❌'} 50% Projects (\${Math.round(g.projPct)}%)</div>
                         <div class="check-item \${g.info ? 'check-done' : 'check-pending'}">\${g.info ? '✅' : '❌'} Info Session</div>
                         <div class="check-item \${g.committee ? 'check-done' : 'check-pending'}">\${g.committee ? '✅' : '❌'} Committee Meeting</div>
                         <div class="check-item \${g.ug ? 'check-done' : 'check-pending'}">\${g.ug ? '✅' : '❌'} UG Student/Graduate</div>
@@ -1154,14 +1188,15 @@ const HTML_CONTENT = `<!DOCTYPE html>
         function updateAttendanceWarningReport() {
             const period = document.getElementById('quarterFilter').value;
             const table = document.getElementById('attendanceWarningTable');
+            const meetTotal = meetingTotals[period] || TOTALS[period].meetings || 1;
             
             const atRisk = members.filter(m => {
-                if (m.isTerminated) return false;
-                const pct = (m.meetings[period] / TOTALS[period].meetings) * 100;
+                if (m.isTerminated || m.isOnLeave) return false;
+                const pct = meetTotal > 0 ? (m.meetings[period] / meetTotal) * 100 : 0;
                 return pct < 60;
             }).sort((a, b) => {
-                const aPct = (a.meetings[period] / TOTALS[period].meetings) * 100;
-                const bPct = (b.meetings[period] / TOTALS[period].meetings) * 100;
+                const aPct = meetTotal > 0 ? (a.meetings[period] / meetTotal) * 100 : 0;
+                const bPct = meetTotal > 0 ? (b.meetings[period] / meetTotal) * 100 : 0;
                 return aPct - bPct;
             });
             
@@ -1183,11 +1218,11 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     </thead>
                     <tbody>
                         \${atRisk.map(m => {
-                            const pct = Math.round((m.meetings[period] / TOTALS[period].meetings) * 100);
+                            const pct = Math.round(meetTotal > 0 ? (m.meetings[period] / meetTotal) * 100 : 0);
                             return \`
                                 <tr>
                                     <td>\${m.fullName}</td>
-                                    <td>\${m.meetings[period]}/\${TOTALS[period].meetings}</td>
+                                    <td>\${m.meetings[period]}/\${meetTotal}</td>
                                     <td style="color:\${pct < 50 ? '#e74c3c' : '#e67e22'}">\${pct}%</td>
                                     <td>\${m.projects[period]}/\${projectTotals[period] || 0}</td>
                                     <td>\${m.email || 'N/A'}</td>
