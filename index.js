@@ -1659,65 +1659,61 @@ const HTML_CONTENT = `<!DOCTYPE html>
         }
         
         function updateElectionsEligibilityReport() {
-            const table = document.getElementById('electionsEligibilityTable');
-            
-            // Per Bylaws Art. 7, Sec. 1: Must have 60% attendance + financial requirements
-            const eligible = members.filter(m => !m.isTerminated && isElectionsEligible(m));
-            const notEligible = members.filter(m => !m.isTerminated && !isElectionsEligible(m));
-            
-            if (eligible.length === 0) {
-                table.innerHTML = '<p style="text-align:center;color:#e67e22;padding:20px;">⚠️ No members currently meet elections eligibility requirements</p>';
-                return;
-            }
-            
-            // Sort by attendance percentage (highest first)
-            const sortedEligible = [...eligible].sort((a, b) => {
-                const aStats = getElectionsAttendanceStats(a);
-                const bStats = getElectionsAttendanceStats(b);
-                return bStats.pct - aStats.pct;
-            });
-            
-            table.innerHTML = \`
-                <div style="margin-bottom:15px;padding:10px;background:rgba(39,174,96,0.1);border-radius:8px;">
-                    <p style="color:#27ae60;font-weight:600;margin:0;">✅ Eligible for Nominations: \${eligible.length} members</p>
-                    <p style="color:#e74c3c;font-weight:600;margin:5px 0 0 0;">❌ Not Eligible: \${notEligible.length} members</p>
-                    <p style="color:#7f8c8d;font-size:0.85rem;margin:5px 0 0 0;">Per Bylaws Art. 7, Sec. 1: 60% attendance (Q1+Q2+Jan) + financial requirements</p>
-                </div>
-                <p style="color:#bdc3c7;font-size:0.85rem;margin-bottom:10px;">* Members inducted mid-period are evaluated on meetings after their induction date</p>
-                <table>
-                    <thead>
+    const table = document.getElementById('electionsEligibilityTable');
+    
+    // Per Bylaws Art. 7, Sec. 1: Must have 60% attendance + financial requirements
+    const eligible = members.filter(m => !m.isTerminated && isElectionsEligible(m));
+    const notEligible = members.filter(m => !m.isTerminated && !isElectionsEligible(m));
+    
+    if (eligible.length === 0) {
+        table.innerHTML = '<p style="text-align:center;color:#e67e22;padding:20px;">⚠️ No members currently meet elections eligibility requirements</p>';
+        return;
+    }
+    
+    // Sort by attendance percentage (highest first)
+    const sortedEligible = [...eligible].sort((a, b) => {
+        const aStats = getElectionsAttendanceStats(a);
+        const bStats = getElectionsAttendanceStats(b);
+        return bStats.pct - aStats.pct;
+    });
+    
+    table.innerHTML = `
+        <div style="margin-bottom:15px;padding:10px;background:rgba(39,174,96,0.1);border-radius:8px;">
+            <p style="color:#27ae60;font-weight:600;margin:0;">✅ Eligible for Nominations: ${eligible.length} members</p>
+            <p style="color:#e74c3c;font-weight:600;margin:5px 0 0 0;">❌ Not Eligible: ${notEligible.length} members</p>
+            <p style="color:#7f8c8d;font-size:0.85rem;margin:5px 0 0 0;">Per Bylaws Art. 7, Sec. 1: 60% attendance (Q1+Q2+Jan) + financial requirements</p>
+        </div>
+        <p style="color:#bdc3c7;font-size:0.85rem;margin-bottom:10px;">* Members inducted mid-period are evaluated on meetings after their induction date</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Induction Date</th>
+                    <th>Meetings</th>
+                    <th>Attendance</th>
+                    <th>Email</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${sortedEligible.map(m => {
+                    const stats = getElectionsAttendanceStats(m);
+                    const inductionInfo = m.dateInducted ? formatDate(m.dateInducted) : 'N/A';
+                    const pctColor = stats.pct >= 60 ? '#27ae60' : stats.pct >= 40 ? '#e67e22' : '#e74c3c';
+                    const adjustedNote = stats.inductionAdjusted && stats.total < (meetingTotals.elections || 10) ? ' *' : '';
+                    return `
                         <tr>
-                            <th>Name</th>
-                            <th>Induction Date</th>
-                            <th>Meetings</th>
-                            <th>Attendance</th>
-                            <th>Email</th>
+                            <td>${m.fullName}${adjustedNote}</td>
+                            <td style="color:#7f8c8d">${inductionInfo}</td>
+                            <td>${stats.attended}/${stats.total}</td>
+                            <td style="color:${pctColor}">${stats.pct}%</td>
+                            <td>${m.email || 'N/A'}</td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        \${sortedEligible.map(m => {
-                            const stats = getElectionsAttendanceStats(m);
-                            const inductionInfo = m.dateInducted ? formatDate(m.dateInducted) : 'N/A';
-                            const pctColor = stats.pct >= 60 ? '#27ae60' : stats.pct >= 40 ? '#e67e22' : '#e74c3c';
-                            const adjustedNote = stats.inductionAdjusted && stats.total < (meetingTotals.elections || 10) ? ' *' : '';
-                            return \`
-                                <tr>
-                                    <td>\${m.fullName}\${adjustedNote}</td>
-                                    <td style="color:#7f8c8d">\${inductionInfo}</td>
-                                    <td>\${stats.attended}/\${stats.total}</td>
-                                    <td style="color:\${pctColor}">\${stats.pct}%</td>
-                                    <td>\${m.email || 'N/A'}</td>
-                                </tr>
-                            \`;
-                        }).join('')}
-                    </tbody>
-                </table>
-            \`;
-                        }).join('')}
-                    </tbody>
-                </table>
-            \`;
-        }
+                    `;
+                }).join('')}
+            </tbody>
+        </table>
+    `;
+}
         
         async function generateElectionsEligibilityPDF() {
             const meetTotal = meetingTotals.elections || TOTALS.elections.meetings || 1;
