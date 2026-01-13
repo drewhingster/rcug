@@ -178,7 +178,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
         </header>
         
         <div id="loadingMessage" class="loading">
-            <div>â³ Loading dashboard data...</div>
+            <div>⏳ Loading dashboard data...</div>
             <div style="font-size:0.8rem; margin-top:10px; color:#bdc3c7;">Fetching from Google Sheets</div>
         </div>
         
@@ -187,7 +187,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
         <div id="mainContent" style="display:none;">
             <!-- Tabs -->
             <div class="tabs">
-                <div class="tab members active" onclick="switchTab('members')">ðŸ‘¥ Members</div>
+                <div class="tab members active" onclick="switchTab('members')">👥 Members</div>
                 <div class="tab guests" onclick="switchTab('guests')">🎯 Guests</div>
                 <div class="tab reports" onclick="switchTab('reports')">📊 Reports & Exports</div>
             </div>
@@ -196,7 +196,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             <div id="membersSection">
                 <div class="controls">
                     <div class="control-row">
-                        <input type="text" id="searchInput" class="search-input" placeholder="ðŸ” Search members...">
+                        <input type="text" id="searchInput" class="search-input" placeholder="🔍 Search members...">
                         <select id="statusFilter" class="filter-select">
                             <option value="all">All Statuses</option>
                             <option value="good">Good Standing</option>
@@ -213,7 +213,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                             <option value="annual">Annual (Full Year)</option>
                             <option value="elections">Elections Period</option>
                         </select>
-                        <button class="refresh-btn" onclick="loadAllData()">ðŸ”„ Refresh</button>
+                        <button class="refresh-btn" onclick="loadAllData()">🔄 Refresh</button>
                     </div>
                 </div>
                 
@@ -239,14 +239,14 @@ const HTML_CONTENT = `<!DOCTYPE html>
             <div id="guestsSection" style="display:none;">
                 <div class="controls">
                     <div class="control-row">
-                        <input type="text" id="guestSearchInput" class="search-input" placeholder="ðŸ” Search guests...">
+                        <input type="text" id="guestSearchInput" class="search-input" placeholder="🔍 Search guests...">
                         <select id="guestStatusFilter" class="filter-select">
                             <option value="all">All Guests</option>
                             <option value="eligible">Eligible for Membership</option>
                             <option value="notug">Not UG</option>
                             <option value="needsinfo">Needs Info Session</option>
                         </select>
-                        <button class="refresh-btn" onclick="loadAllData()">ðŸ”„ Refresh</button>
+                        <button class="refresh-btn" onclick="loadAllData()">🔄 Refresh</button>
                     </div>
                 </div>
                 
@@ -286,7 +286,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                             <option value="11">November</option>
                             <option value="12">December</option>
                         </select>
-                        <button class="export-btn" onclick="generateBirthdayPDF()" id="birthdayExportBtn" disabled> „ Export PDF</button>
+                        <button class="export-btn" onclick="generateBirthdayPDF()" id="birthdayExportBtn" disabled>�„ Export PDF</button>
                     </div>
                     <div id="birthdayReportTable" class="report-table"></div>
                 </div>
@@ -311,14 +311,14 @@ const HTML_CONTENT = `<!DOCTYPE html>
                             <option value="11">November</option>
                             <option value="12">December</option>
                         </select>
-                        <button class="export-btn" onclick="generateAnniversaryPDF()" id="anniversaryExportBtn" disabled> „ Export PDF</button>
+                        <button class="export-btn" onclick="generateAnniversaryPDF()" id="anniversaryExportBtn" disabled>�„ Export PDF</button>
                     </div>
                     <div id="anniversaryReportTable" class="report-table"></div>
                 </div>
                 
                 <!-- Quarterly Attendance Report -->
                 <div class="report-card">
-                    <h2 class="report-title">âš ï¸ Quarterly Attendance Warning Report</h2>
+                    <h2 class="report-title">⚠️ Quarterly Attendance Warning Report</h2>
                     <p class="report-description">Members below 60% attendance threshold (Bylaws Section 9)</p>
                     <div class="report-controls">
                         <select id="quarterFilter" class="filter-select">
@@ -330,7 +330,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                             <option value="h2">Half 2 (Q3 + Q4)</option>
                             <option value="annual">Annual (Full Year)</option>
                         </select>
-                        <button class="export-btn" onclick="generateAttendanceWarningPDF()"> „ Export PDF</button>
+                        <button class="export-btn" onclick="generateAttendanceWarningPDF()">�„ Export PDF</button>
                         <button class="export-btn" onclick="generateAttendanceWarningCSV()">📊 Export CSV</button>
                     </div>
                     <div id="attendanceWarningTable" class="report-table"></div>
@@ -341,7 +341,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     <h2 class="report-title">⭐ Guest Eligibility Report</h2>
                     <p class="report-description">Guests who have met membership requirements and are ready for proposal</p>
                     <div class="report-controls">
-                        <button class="export-btn" onclick="generateGuestEligibilityPDF()"> „ Export PDF</button>
+                        <button class="export-btn" onclick="generateGuestEligibilityPDF()">�„ Export PDF</button>
                         <button class="export-btn" onclick="generateGuestEligibilityCSV()">📊 Export CSV</button>
                     </div>
                     <div id="guestEligibilityTable" class="report-table"></div>
@@ -437,7 +437,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 console.error('Load error:', error);
                 document.getElementById('loadingMessage').style.display = 'none';
                 document.getElementById('errorMessage').style.display = 'block';
-                document.getElementById('errorMessage').innerHTML = \`<h3>âš ï¸ Error Loading Data</h3><p>\${error.message}</p><p style="margin-top:15px;">Make sure your Google Sheet sharing is set to "Anyone with the link"</p><p><a href="https://docs.google.com/spreadsheets/d/\${SHEET_ID}/edit" target="_blank">Open Google Sheet</a></p>\`;
+                document.getElementById('errorMessage').innerHTML = \`<h3>⚠️ Error Loading Data</h3><p>\${error.message}</p><p style="margin-top:15px;">Make sure your Google Sheet sharing is set to "Anyone with the link"</p><p><a href="https://docs.google.com/spreadsheets/d/\${SHEET_ID}/edit" target="_blank">Open Google Sheet</a></p>\`;
             }
         }
         
@@ -760,7 +760,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             return \`
                 <div class="member-card \${statusClass}" onclick="showMemberDetails('\${m.fullName.replace(/'/g, "\\\\'")}')">
                     <div class="card-actions">
-                        <button class="card-action-btn" onclick="event.stopPropagation(); exportMemberCard('\${m.fullName.replace(/'/g, "\\\\'")}')"> „ Export</button>
+                        <button class="card-action-btn" onclick="event.stopPropagation(); exportMemberCard('\${m.fullName.replace(/'/g, "\\\\'")}')">�„ Export</button>
                     </div>
                     <div class="card-header">
                         <div>
@@ -814,7 +814,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
         function renderGuestCard(g) {
             const eligible = isEligible(g);
             const statusClass = eligible ? 'eligible' : g.ug ? 'guest' : 'notug';
-            const statusText = eligible ? '✅ Eligible' : !g.info ? '  Info Session Needed' : !g.ug ? 'âŒ Not UG' : 'â³ In Progress';
+            const statusText = eligible ? '✅ Eligible' : !g.info ? '� Info Session Needed' : !g.ug ? '❌ Not UG' : '⏳ In Progress';
             
             return \`
                 <div class="member-card \${statusClass}">
@@ -840,11 +840,11 @@ const HTML_CONTENT = `<!DOCTYPE html>
                         <span class="progress-value">\${g.projects}/\${TOTALS.h1.projects} (\${Math.round(g.projPct)}%)</span>
                     </div>
                     <div class="checklist">
-                        <div class="check-item \${g.meetings >= 3 ? 'check-done' : 'check-pending'}">\${g.meetings >= 3 ? '✅' : 'âŒ'} 3+ Business Meetings</div>
-                        <div class="check-item \${g.projects >= 2 ? 'check-done' : 'check-pending'}">\${g.projects >= 2 ? '✅' : 'âŒ'} 2+ Projects</div>
-                        <div class="check-item \${g.info ? 'check-done' : 'check-pending'}">\${g.info ? '✅' : 'âŒ'} Info Session</div>
-                        <div class="check-item \${g.committee ? 'check-done' : 'check-pending'}">\${g.committee ? '✅' : 'âŒ'} Committee Meeting</div>
-                        <div class="check-item \${g.ug ? 'check-done' : 'check-pending'}">\${g.ug ? '✅' : 'âŒ'} UG Student/Graduate</div>
+                        <div class="check-item \${g.meetings >= 3 ? 'check-done' : 'check-pending'}">\${g.meetings >= 3 ? '✅' : '❌'} 3+ Business Meetings</div>
+                        <div class="check-item \${g.projects >= 2 ? 'check-done' : 'check-pending'}">\${g.projects >= 2 ? '✅' : '❌'} 2+ Projects</div>
+                        <div class="check-item \${g.info ? 'check-done' : 'check-pending'}">\${g.info ? '✅' : '❌'} Info Session</div>
+                        <div class="check-item \${g.committee ? 'check-done' : 'check-pending'}">\${g.committee ? '✅' : '❌'} Committee Meeting</div>
+                        <div class="check-item \${g.ug ? 'check-done' : 'check-pending'}">\${g.ug ? '✅' : '❌'} UG Student/Graduate</div>
                     </div>
                 </div>
             \`;
@@ -896,7 +896,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 <div class="modal-header">
                     <div class="modal-name">\${m.fullName}</div>
                     <div class="modal-email">\${m.email || 'No email on file'}</div>
-                    \${m.contact ? \`<div class="modal-contact"> ž \${m.contact}</div>\` : ''}
+                    \${m.contact ? \`<div class="modal-contact">�ž \${m.contact}</div>\` : ''}
                 </div>
                 
                 <div class="detail-section">
@@ -1221,9 +1221,9 @@ const HTML_CONTENT = `<!DOCTYPE html>
                                 <td>\${g.fullName}</td>
                                 <td>\${g.meetings}/\${TOTALS.h1.meetings}</td>
                                 <td>\${g.projects}/\${TOTALS.h1.projects}</td>
-                                <td style="color:#27ae60">\${g.info ? '✅' : 'âŒ'}</td>
-                                <td style="color:#27ae60">\${g.committee ? '✅' : 'âŒ'}</td>
-                                <td style="color:#27ae60">\${g.ug ? '✅' : 'âŒ'}</td>
+                                <td style="color:#27ae60">\${g.info ? '✅' : '❌'}</td>
+                                <td style="color:#27ae60">\${g.committee ? '✅' : '❌'}</td>
+                                <td style="color:#27ae60">\${g.ug ? '✅' : '❌'}</td>
                             </tr>
                         \`).join('')}
                     </tbody>
@@ -1424,7 +1424,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 pdf.text(\`Mtgs: \${g.meetings}/\${TOTALS.h1.meetings}\`, 100, y);
                 pdf.text(\`Proj: \${g.projects}/\${TOTALS.h1.projects}\`, 140, y);
                 pdf.setTextColor(39, 174, 96);
-                pdf.text('âœ“ Ready', 170, y);
+                pdf.text('✓ Ready', 170, y);
                 pdf.setTextColor(0, 0, 0);
                 y += 7;
             });
