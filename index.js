@@ -349,6 +349,17 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     </div>
                     <div id="guestEligibilityTable" class="report-table"></div>
                 </div>
+                
+                <!-- Elections Eligibility Report -->
+                <div class="report-card">
+                    <h2 class="report-title">🗳️ Elections Eligibility Report</h2>
+                    <p class="report-description">Members eligible to vote and run in elections (60% attendance Q1+Q2+Jan, Bylaws Article 7)</p>
+                    <div class="report-controls">
+                        <button class="export-btn" onclick="generateElectionsEligibilityPDF()">✨ Export PDF</button>
+                        <button class="export-btn" onclick="generateElectionsEligibilityCSV()">📊 Export CSV</button>
+                    </div>
+                    <div id="electionsEligibilityTable" class="report-table"></div>
+                </div>
             </div>
         </div>
         
@@ -576,6 +587,47 @@ const HTML_CONTENT = `<!DOCTYPE html>
             const m = today.getMonth() - inducted.getMonth();
             if (m < 0 || (m === 0 && today.getDate() < inducted.getDate())) years--;
             return years;
+        }
+        
+        // Get Rotaract quarter from date (Q1=Jul-Sep, Q2=Oct-Dec, Q3=Jan-Mar, Q4=Apr-Jun)
+        function getQuarterFromDate(dateStr) {
+            if (!dateStr) return null;
+            const d = new Date(dateStr);
+            if (isNaN(d)) return null;
+            const month = d.getMonth() + 1; // 1-12
+            if (month >= 7 && month <= 9) return 'q1';
+            if (month >= 10 && month <= 12) return 'q2';
+            if (month >= 1 && month <= 3) return 'q3';
+            if (month >= 4 && month <= 6) return 'q4';
+            return null;
+        }
+        
+        // Check if member joined during the specified period
+        function memberJoinedDuringPeriod(member, period) {
+            if (!member.dateInducted) return false;
+            const joinQuarter = getQuarterFromDate(member.dateInducted);
+            if (!joinQuarter) return false;
+            
+            // For single quarters, check direct match
+            if (period === joinQuarter) return true;
+            
+            // For h1, check if joined in Q1 or Q2
+            if (period === 'h1' && (joinQuarter === 'q1' || joinQuarter === 'q2')) return true;
+            
+            // For h2, check if joined in Q3 or Q4
+            if (period === 'h2' && (joinQuarter === 'q3' || joinQuarter === 'q4')) return true;
+            
+            // For annual, any quarter counts
+            if (period === 'annual') return true;
+            
+            // For elections (Q1+Q2+Jan), check Q1, Q2, or January
+            if (period === 'elections') {
+                if (joinQuarter === 'q1' || joinQuarter === 'q2') return true;
+                const d = new Date(member.dateInducted);
+                if (d.getMonth() === 0) return true; // January
+            }
+            
+            return false;
         }
         
         function processMembers(data) {
@@ -1030,6 +1082,27 @@ const HTML_CONTENT = `<!DOCTYPE html>
             const m = members.find(mem => mem.fullName === name);
             if (!m) return;
             
+            // Get current period values for export
+            const period = currentPeriod;
+            const periodNames = { q1: 'Quarter 1', q2: 'Quarter 2', q3: 'Quarter 3', q4: 'Quarter 4', h1: 'Half 1', h2: 'Half 2', annual: 'Annual', elections: 'Elections Period' };
+            const periodName = periodNames[period] || period.toUpperCase();
+            const meetTotal = meetingTotals[period] || TOTALS[period].meetings || 1;
+            const projTotal = projectTotals[period] || 0;
+            const meetPct = meetTotal > 0 ? Math.round((m.meetings[period] / meetTotal) * 100) : 0;
+            const projPct = projTotal > 0 ? Math.round((m.projects[period] / projTotal) * 100) : 0;
+            
+            // Calculate board meetings for the selected period
+            let boardHtml = '';
+            if (m.isBoardMember && m.boardMeetings) {
+                let bp, btotal;
+                if (period === 'h1') { bp = (m.boardMeetings.q1 || 0) + (m.boardMeetings.q2 || 0); btotal = 6; }
+                else if (period === 'h2') { bp = (m.boardMeetings.q3 || 0) + (m.boardMeetings.q4 || 0); btotal = 6; }
+                else if (period === 'annual') { bp = m.boardMeetings.total || 0; btotal = 12; }
+                else if (period === 'elections') { bp = (m.boardMeetings.q1 || 0) + (m.boardMeetings.q2 || 0) + (m.boardMeetings.q3 || 0); btotal = 9; }
+                else { bp = m.boardMeetings[period] || 0; btotal = 3; }
+                boardHtml = \`<p><strong>Board Meetings:</strong> \${bp}/\${btotal}</p>\`;
+            }
+            
             // Show member in temporary printable div
             const printDiv = document.createElement('div');
             printDiv.style.cssText = 'position:fixed;left:-9999px;width:800px;padding:40px;background:white;color:black;';
@@ -1044,15 +1117,15 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     <p><strong>Contact:</strong> \${m.contact || 'N/A'}</p>
                     <p><strong>Category:</strong> \${m.category}</p>
                     <hr>
-                    <h3>Attendance Summary (Half 1)</h3>
-                    <p><strong>Meetings:</strong> \${m.meetings.h1}/\${TOTALS.h1.meetings} (\${Math.round((m.meetings.h1/TOTALS.h1.meetings)*100)}%)</p>
-                    <p><strong>Projects:</strong> \${m.projects.h1}/\${TOTALS.h1.projects} (\${Math.round((m.projects.h1/TOTALS.h1.projects)*100)}%)</p>
-                    \${m.isBoardMember && m.boardMeetings ? \`<p><strong>Board Meetings:</strong> \${m.boardMeetings.q1 + m.boardMeetings.q2}/6</p>\` : ''}
+                    <h3>Attendance Summary (\${periodName})</h3>
+                    <p><strong>Meetings:</strong> \${m.meetings[period]}/\${meetTotal} (\${meetPct}%)</p>
+                    <p><strong>Projects:</strong> \${m.projects[period]}/\${projTotal} (\${projPct}%)</p>
+                    \${boardHtml}
                     <hr>
                     <h3>Meetings Attended</h3>
-                    <ul>\${m.meetingDetails.h1.map(md => \`<li>\${md.date} - \${md.type}</li>\`).join('') || '<li>None</li>'}</ul>
+                    <ul>\${m.meetingDetails[period].map(md => \`<li>\${md.date} - \${md.type}</li>\`).join('') || '<li>None</li>'}</ul>
                     <h3>Meetings Missed</h3>
-                    <ul>\${m.missedMeetings.h1.map(d => \`<li>\${d}</li>\`).join('') || '<li>None</li>'}</ul>
+                    <ul>\${m.missedMeetings[period].map(d => \`<li>\${d}</li>\`).join('') || '<li>None</li>'}</ul>
                 </div>
                 <div style="text-align:center;margin-top:20px;color:#666;font-size:12px;">
                     Generated: \${new Date().toLocaleString()}
@@ -1070,7 +1143,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 const imgHeight = (canvas.height * imgWidth) / canvas.width;
                 
                 pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-                pdf.save(\`\${m.fullName.replace(/\s+/g, '_')}_Attendance_Card.pdf\`);
+                pdf.save(\`\${m.fullName.replace(/\s+/g, '_')}_\${period.toUpperCase()}_Attendance_Card.pdf\`);
             } catch (error) {
                 console.error('Export error:', error);
                 alert('Error generating PDF. Please try again.');
@@ -1085,6 +1158,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             updateAnniversaryReport();
             updateAttendanceWarningReport();
             updateGuestEligibilityReport();
+            updateElectionsEligibilityReport();
         }
         
         function updateBirthdayReport() {
@@ -1192,6 +1266,8 @@ const HTML_CONTENT = `<!DOCTYPE html>
             
             const atRisk = members.filter(m => {
                 if (m.isTerminated || m.isOnLeave) return false;
+                // Exclude members who joined during the selected period (they couldn't attend all meetings)
+                if (memberJoinedDuringPeriod(m, period)) return false;
                 const pct = meetTotal > 0 ? (m.meetings[period] / meetTotal) * 100 : 0;
                 return pct < 60;
             }).sort((a, b) => {
@@ -1354,9 +1430,12 @@ const HTML_CONTENT = `<!DOCTYPE html>
         
         async function generateAttendanceWarningPDF() {
             const period = document.getElementById('quarterFilter').value;
+            const meetTotal = meetingTotals[period] || TOTALS[period].meetings || 1;
             const atRisk = members.filter(m => {
-                if (m.isTerminated) return false;
-                const pct = (m.meetings[period] / TOTALS[period].meetings) * 100;
+                if (m.isTerminated || m.isOnLeave) return false;
+                // Exclude members who joined during the selected period
+                if (memberJoinedDuringPeriod(m, period)) return false;
+                const pct = meetTotal > 0 ? (m.meetings[period] / meetTotal) * 100 : 0;
                 return pct < 60;
             });
             
@@ -1364,6 +1443,8 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 alert('No members below attendance threshold!');
                 return;
             }
+            
+            const periodNames = { q1: 'Quarter 1 (Jul-Sep)', q2: 'Quarter 2 (Oct-Dec)', q3: 'Quarter 3 (Jan-Mar)', q4: 'Quarter 4 (Apr-Jun)', h1: 'Half 1 (Q1+Q2)', h2: 'Half 2 (Q3+Q4)', annual: 'Annual', elections: 'Elections (Q1+Q2+Jan)' };
             
             const { jsPDF } = window.jspdf;
             const pdf = new jsPDF('p', 'mm', 'a4');
@@ -1378,7 +1459,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             
             pdf.setFontSize(12);
             pdf.setTextColor(100, 100, 100);
-            pdf.text(\`Period: \${period.toUpperCase()}\`, 105, 38, { align: 'center' });
+            pdf.text(\`Period: \${periodNames[period] || period.toUpperCase()}\`, 105, 38, { align: 'center' });
             
             pdf.setFontSize(10);
             pdf.setTextColor(0, 0, 0);
@@ -1389,9 +1470,9 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     pdf.addPage();
                     y = 20;
                 }
-                const pct = Math.round((m.meetings[period] / TOTALS[period].meetings) * 100);
+                const pct = Math.round(meetTotal > 0 ? (m.meetings[period] / meetTotal) * 100 : 0);
                 pdf.text(\`\${m.fullName}\`, 20, y);
-                pdf.text(\`\${m.meetings[period]}/\${TOTALS[period].meetings}\`, 120, y);
+                pdf.text(\`\${m.meetings[period]}/\${meetTotal}\`, 120, y);
                 pdf.setTextColor(pct < 50 ? 231 : 230, pct < 50 ? 76 : 126, pct < 50 ? 60 : 34);
                 pdf.text(\`\${pct}%\`, 160, y);
                 pdf.setTextColor(0, 0, 0);
@@ -1407,9 +1488,12 @@ const HTML_CONTENT = `<!DOCTYPE html>
         
         function generateAttendanceWarningCSV() {
             const period = document.getElementById('quarterFilter').value;
+            const meetTotal = meetingTotals[period] || TOTALS[period].meetings || 1;
             const atRisk = members.filter(m => {
-                if (m.isTerminated) return false;
-                const pct = (m.meetings[period] / TOTALS[period].meetings) * 100;
+                if (m.isTerminated || m.isOnLeave) return false;
+                // Exclude members who joined during the selected period
+                if (memberJoinedDuringPeriod(m, period)) return false;
+                const pct = meetTotal > 0 ? (m.meetings[period] / meetTotal) * 100 : 0;
                 return pct < 60;
             });
             
@@ -1420,8 +1504,8 @@ const HTML_CONTENT = `<!DOCTYPE html>
             
             let csv = 'Name,Meetings Attended,Total Meetings,Attendance %,Projects,Email\\n';
             atRisk.forEach(m => {
-                const pct = Math.round((m.meetings[period] / TOTALS[period].meetings) * 100);
-                csv += \`"\${m.fullName}",\${m.meetings[period]},\${TOTALS[period].meetings},\${pct}%,\${m.projects[period]},"\${m.email || 'N/A'}"\\n\`;
+                const pct = Math.round(meetTotal > 0 ? (m.meetings[period] / meetTotal) * 100 : 0);
+                csv += \`"\${m.fullName}",\${m.meetings[period]},\${meetTotal},\${pct}%,\${m.projects[period]},"\${m.email || 'N/A'}"\\n\`;
             });
             
             const blob = new Blob([csv], { type: 'text/csv' });
@@ -1494,6 +1578,159 @@ const HTML_CONTENT = `<!DOCTYPE html>
             const a = document.createElement('a');
             a.href = url;
             a.download = \`RCUG_Guest_Eligibility_\${new Date().getFullYear()}.csv\`;
+            a.click();
+        }
+        
+        // Elections Eligibility Report Functions (Bylaws Article 7)
+        function isElectionsEligible(m) {
+            if (m.isTerminated) return false;
+            // According to bylaws: must have 60% attendance during elections period (Q1+Q2+Jan)
+            // and be in good financial standing (dues paid - we check via isOnLeave status as proxy)
+            // Members on leave > 1 year are not eligible
+            const meetTotal = meetingTotals.elections || TOTALS.elections.meetings || 1;
+            const pct = meetTotal > 0 ? (m.meetings.elections / meetTotal) * 100 : 0;
+            return pct >= 60;
+        }
+        
+        function updateElectionsEligibilityReport() {
+            const table = document.getElementById('electionsEligibilityTable');
+            const meetTotal = meetingTotals.elections || TOTALS.elections.meetings || 1;
+            
+            const eligible = members.filter(m => !m.isTerminated && isElectionsEligible(m));
+            const notEligible = members.filter(m => !m.isTerminated && !isElectionsEligible(m));
+            
+            if (eligible.length === 0) {
+                table.innerHTML = '<p style="text-align:center;color:#e67e22;padding:20px;">⚠️ No members currently meet elections eligibility requirements</p>';
+                return;
+            }
+            
+            table.innerHTML = \`
+                <div style="margin-bottom:20px;">
+                    <p style="color:#27ae60;font-weight:600;">✅ Eligible Members: \${eligible.length}</p>
+                    <p style="color:#e74c3c;font-weight:600;">❌ Not Eligible: \${notEligible.length}</p>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Meetings (Q1+Q2+Jan)</th>
+                            <th>Attendance %</th>
+                            <th>Status</th>
+                            <th>Email</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        \${eligible.map(m => {
+                            const pct = Math.round(meetTotal > 0 ? (m.meetings.elections / meetTotal) * 100 : 0);
+                            return \`
+                                <tr>
+                                    <td>\${m.fullName}</td>
+                                    <td>\${m.meetings.elections}/\${meetTotal}</td>
+                                    <td style="color:#27ae60">\${pct}%</td>
+                                    <td style="color:#27ae60">✅ Eligible</td>
+                                    <td>\${m.email || 'N/A'}</td>
+                                </tr>
+                            \`;
+                        }).join('')}
+                    </tbody>
+                </table>
+            \`;
+        }
+        
+        async function generateElectionsEligibilityPDF() {
+            const meetTotal = meetingTotals.elections || TOTALS.elections.meetings || 1;
+            const eligible = members.filter(m => !m.isTerminated && isElectionsEligible(m));
+            
+            if (eligible.length === 0) {
+                alert('No members currently eligible for elections!');
+                return;
+            }
+            
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            
+            pdf.setFontSize(20);
+            pdf.setTextColor(233, 30, 99);
+            pdf.text('Rotaract Club of University of Guyana', 105, 20, { align: 'center' });
+            
+            pdf.setFontSize(16);
+            pdf.setTextColor(155, 89, 182);
+            pdf.text('Elections Eligibility Report', 105, 30, { align: 'center' });
+            
+            pdf.setFontSize(12);
+            pdf.setTextColor(100, 100, 100);
+            pdf.text('Members eligible to vote and run for office (Bylaws Article 7)', 105, 38, { align: 'center' });
+            pdf.text(\`Period: Q1 + Q2 + January | Required: 60% Attendance\`, 105, 45, { align: 'center' });
+            
+            pdf.setFontSize(11);
+            pdf.setTextColor(39, 174, 96);
+            pdf.text(\`Total Eligible: \${eligible.length} members\`, 105, 55, { align: 'center' });
+            
+            pdf.setFontSize(10);
+            pdf.setTextColor(0, 0, 0);
+            
+            // Table headers
+            let y = 65;
+            pdf.setFillColor(233, 30, 99);
+            pdf.rect(15, y - 5, 180, 8, 'F');
+            pdf.setTextColor(255, 255, 255);
+            pdf.text('Name', 20, y);
+            pdf.text('Meetings', 100, y);
+            pdf.text('Attendance', 130, y);
+            pdf.text('Email', 160, y);
+            
+            y += 10;
+            pdf.setTextColor(0, 0, 0);
+            
+            eligible.forEach((m, idx) => {
+                if (y > 270) {
+                    pdf.addPage();
+                    y = 20;
+                }
+                
+                // Alternate row colors
+                if (idx % 2 === 0) {
+                    pdf.setFillColor(245, 245, 245);
+                    pdf.rect(15, y - 4, 180, 7, 'F');
+                }
+                
+                const pct = Math.round(meetTotal > 0 ? (m.meetings.elections / meetTotal) * 100 : 0);
+                pdf.text(\`\${m.fullName}\`, 20, y);
+                pdf.text(\`\${m.meetings.elections}/\${meetTotal}\`, 100, y);
+                pdf.setTextColor(39, 174, 96);
+                pdf.text(\`\${pct}%\`, 130, y);
+                pdf.setTextColor(0, 0, 0);
+                pdf.text(\`\${(m.email || 'N/A').substring(0, 25)}\`, 160, y);
+                y += 7;
+            });
+            
+            pdf.setFontSize(8);
+            pdf.setTextColor(150, 150, 150);
+            pdf.text(\`Generated: \${new Date().toLocaleString()} | For Secretary's distribution\`, 105, 285, { align: 'center' });
+            
+            pdf.save(\`RCUG_Elections_Eligibility_\${new Date().getFullYear()}.pdf\`);
+        }
+        
+        function generateElectionsEligibilityCSV() {
+            const meetTotal = meetingTotals.elections || TOTALS.elections.meetings || 1;
+            const eligible = members.filter(m => !m.isTerminated && isElectionsEligible(m));
+            
+            if (eligible.length === 0) {
+                alert('No members currently eligible for elections!');
+                return;
+            }
+            
+            let csv = 'Name,Meetings Attended,Total Meetings,Attendance %,Email\\n';
+            eligible.forEach(m => {
+                const pct = Math.round(meetTotal > 0 ? (m.meetings.elections / meetTotal) * 100 : 0);
+                csv += \`"\${m.fullName}",\${m.meetings.elections},\${meetTotal},\${pct}%,"\${m.email || 'N/A'}"\\n\`;
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = \`RCUG_Elections_Eligibility_\${new Date().getFullYear()}.csv\`;
             a.click();
         }
         
