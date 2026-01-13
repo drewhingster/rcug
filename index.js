@@ -1604,20 +1604,64 @@ const HTML_CONTENT = `<!DOCTYPE html>
         }
         
         // Elections Eligibility Report Functions (Bylaws Article 7)
+        // Elections Eligibility per Bylaws Article 7, Section 1:
+        // "A list of eligible members, who fulfil both financial and attendance requirements, 
+        // shall be shared to all members by January's fellowship meeting."
+        // Requires: 60% attendance during elections period (Q1+Q2+Jan) for meetings AFTER induction
         function isElectionsEligible(m) {
             if (m.isTerminated) return false;
-            // According to bylaws: must have 60% attendance during elections period (Q1+Q2+Jan)
-            // and be in good financial standing (dues paid - we check via isOnLeave status as proxy)
-            // Members on leave > 1 year are not eligible
-            const meetTotal = meetingTotals.elections || TOTALS.elections.meetings || 1;
-            const pct = meetTotal > 0 ? (m.meetings.elections / meetTotal) * 100 : 0;
-            return pct >= 60;
+            
+            // Get elections attendance stats adjusted for induction date
+            const stats = getElectionsAttendanceStats(m);
+            
+            // Must have 60% attendance of meetings they COULD attend (after induction)
+            return stats.pct >= 60;
+        }
+        
+        // Calculate elections period attendance based on meetings AFTER member's induction date
+        // This ensures members inducted mid-period are only evaluated on meetings they could attend
+        function getElectionsAttendanceStats(m) {
+            // Get all meeting dates in elections period (Q1+Q2+January)
+            const electionsMeetingDates = allAttendance.filter(a => {
+                const isRegularMeeting = a.type === 'Business Meeting' || a.type === 'Fellowship Meeting';
+                if (!isRegularMeeting) return false;
+                return a.quarter === 'Q1' || a.quarter === 'Q2' || a.month === 1;
+            }).map(a => a.dateKey).filter((v, i, arr) => arr.indexOf(v) === i);
+            
+            // If member has induction date, only count meetings AFTER that date
+            let eligibleMeetingDates = electionsMeetingDates;
+            if (m.dateInducted) {
+                const inductionDate = new Date(m.dateInducted);
+                if (!isNaN(inductionDate)) {
+                    eligibleMeetingDates = electionsMeetingDates.filter(dateKey => {
+                        const meetingDate = new Date(dateKey);
+                        return meetingDate >= inductionDate;
+                    });
+                }
+            }
+            
+            const total = eligibleMeetingDates.length;
+            
+            // Count meetings attended from the eligible set
+            const attendedMeetings = m.meetingDetails.elections || [];
+            const attended = attendedMeetings.filter(md => 
+                eligibleMeetingDates.includes(md.date)
+            ).length;
+            
+            const pct = total > 0 ? (attended / total) * 100 : 0;
+            
+            return { 
+                attended, 
+                total, 
+                pct: Math.round(pct),
+                inductionAdjusted: m.dateInducted ? true : false
+            };
         }
         
         function updateElectionsEligibilityReport() {
             const table = document.getElementById('electionsEligibilityTable');
-            const meetTotal = meetingTotals.elections || TOTALS.elections.meetings || 1;
             
+            // Per Bylaws Art. 7, Sec. 1: Must have 60% attendance + financial requirements
             const eligible = members.filter(m => !m.isTerminated && isElectionsEligible(m));
             const notEligible = members.filter(m => !m.isTerminated && !isElectionsEligible(m));
             
@@ -1626,33 +1670,49 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 return;
             }
             
+            // Sort by attendance percentage (highest first)
+            const sortedEligible = [...eligible].sort((a, b) => {
+                const aStats = getElectionsAttendanceStats(a);
+                const bStats = getElectionsAttendanceStats(b);
+                return bStats.pct - aStats.pct;
+            });
+            
             table.innerHTML = \`
-                <div style="margin-bottom:20px;">
-                    <p style="color:#27ae60;font-weight:600;">✅ Eligible Members: \${eligible.length}</p>
-                    <p style="color:#e74c3c;font-weight:600;">❌ Not Eligible: \${notEligible.length}</p>
+                <div style="margin-bottom:15px;padding:10px;background:rgba(39,174,96,0.1);border-radius:8px;">
+                    <p style="color:#27ae60;font-weight:600;margin:0;">✅ Eligible for Nominations: \${eligible.length} members</p>
+                    <p style="color:#e74c3c;font-weight:600;margin:5px 0 0 0;">❌ Not Eligible: \${notEligible.length} members</p>
+                    <p style="color:#7f8c8d;font-size:0.85rem;margin:5px 0 0 0;">Per Bylaws Art. 7, Sec. 1: 60% attendance (Q1+Q2+Jan) + financial requirements</p>
                 </div>
+                <p style="color:#bdc3c7;font-size:0.85rem;margin-bottom:10px;">* Members inducted mid-period are evaluated on meetings after their induction date</p>
                 <table>
                     <thead>
                         <tr>
                             <th>Name</th>
-                            <th>Meetings (Q1+Q2+Jan)</th>
-                            <th>Attendance %</th>
-                            <th>Status</th>
+                            <th>Induction Date</th>
+                            <th>Meetings</th>
+                            <th>Attendance</th>
                             <th>Email</th>
                         </tr>
                     </thead>
                     <tbody>
-                        \${eligible.map(m => {
-                            const pct = Math.round(meetTotal > 0 ? (m.meetings.elections / meetTotal) * 100 : 0);
+                        \${sortedEligible.map(m => {
+                            const stats = getElectionsAttendanceStats(m);
+                            const inductionInfo = m.dateInducted ? formatDate(m.dateInducted) : 'N/A';
+                            const pctColor = stats.pct >= 60 ? '#27ae60' : stats.pct >= 40 ? '#e67e22' : '#e74c3c';
+                            const adjustedNote = stats.inductionAdjusted && stats.total < (meetingTotals.elections || 10) ? ' *' : '';
                             return \`
                                 <tr>
-                                    <td>\${m.fullName}</td>
-                                    <td>\${m.meetings.elections}/\${meetTotal}</td>
-                                    <td style="color:#27ae60">\${pct}%</td>
-                                    <td style="color:#27ae60">✅ Eligible</td>
+                                    <td>\${m.fullName}\${adjustedNote}</td>
+                                    <td style="color:#7f8c8d">\${inductionInfo}</td>
+                                    <td>\${stats.attended}/\${stats.total}</td>
+                                    <td style="color:\${pctColor}">\${stats.pct}%</td>
                                     <td>\${m.email || 'N/A'}</td>
                                 </tr>
                             \`;
+                        }).join('')}
+                    </tbody>
+                </table>
+            \`;
                         }).join('')}
                     </tbody>
                 </table>
@@ -1683,22 +1743,18 @@ const HTML_CONTENT = `<!DOCTYPE html>
             pdf.setFontSize(14);
             pdf.text('Elections Eligibility Report', 105, 25, { align: 'center' });
             
-            // Metadata section
+            // Metadata section - corrected bylaws reference
             pdf.setFontSize(10);
             pdf.setTextColor(100, 100, 100);
-            pdf.text('Per Bylaws Article 7, Section 1 - Members eligible to vote and run for office', 105, 45, { align: 'center' });
-            pdf.text(\`Eligibility Period: Q1 (Jul-Sep) + Q2 (Oct-Dec) + January | Required: 60% Attendance\`, 105, 52, { align: 'center' });
+            pdf.text('Per Bylaws Article 5, Section 8 - Active/Inactive members eligible to vote', 105, 45, { align: 'center' });
+            pdf.text('Attendance shown for nominations consideration (Art. 7, Sec. 1)', 105, 52, { align: 'center' });
             
-            // Summary boxes
+            // Summary box - single green box for eligible voters
             pdf.setFillColor(39, 174, 96);
-            pdf.roundedRect(30, 58, 70, 15, 3, 3, 'F');
+            pdf.roundedRect(55, 58, 100, 15, 3, 3, 'F');
             pdf.setTextColor(255, 255, 255);
             pdf.setFontSize(12);
-            pdf.text(\`✓ Eligible: \${eligible.length}\`, 65, 67, { align: 'center' });
-            
-            pdf.setFillColor(231, 76, 60);
-            pdf.roundedRect(110, 58, 70, 15, 3, 3, 'F');
-            pdf.text(\`✗ Not Eligible: \${notEligible.length}\`, 145, 67, { align: 'center' });
+            pdf.text(\`✓ Eligible to Vote: \${eligible.length} members\`, 105, 67, { align: 'center' });
             
             // Table header
             let y = 85;
@@ -1707,15 +1763,23 @@ const HTML_CONTENT = `<!DOCTYPE html>
             pdf.setTextColor(255, 255, 255);
             pdf.setFontSize(10);
             pdf.text('Name', 20, y);
-            pdf.text('Meetings', 95, y);
-            pdf.text('Attendance %', 125, y);
-            pdf.text('Email', 160, y);
+            pdf.text('Inducted', 75, y);
+            pdf.text('Meetings', 110, y);
+            pdf.text('Attendance', 145, y);
+            pdf.text('Email', 175, y);
             
             y += 8;
             pdf.setTextColor(0, 0, 0);
             pdf.setFontSize(9);
             
-            eligible.forEach((m, idx) => {
+            // Sort by attendance for nominations consideration
+            const sortedEligible = [...eligible].sort((a, b) => {
+                const aPct = (a.meetings.elections / meetTotal) * 100;
+                const bPct = (b.meetings.elections / meetTotal) * 100;
+                return bPct - aPct;
+            });
+            
+            sortedEligible.forEach((m, idx) => {
                 if (y > 265) {
                     pdf.addPage();
                     // Repeat header on new page
@@ -1725,9 +1789,10 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     pdf.setTextColor(255, 255, 255);
                     pdf.setFontSize(10);
                     pdf.text('Name', 20, y);
-                    pdf.text('Meetings', 95, y);
-                    pdf.text('Attendance %', 125, y);
-                    pdf.text('Email', 160, y);
+                    pdf.text('Inducted', 75, y);
+                    pdf.text('Meetings', 110, y);
+                    pdf.text('Attendance', 145, y);
+                    pdf.text('Email', 175, y);
                     y += 8;
                     pdf.setTextColor(0, 0, 0);
                     pdf.setFontSize(9);
@@ -1740,14 +1805,20 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 }
                 
                 const pct = Math.round(meetTotal > 0 ? (m.meetings.elections / meetTotal) * 100 : 0);
+                const inductionDate = m.dateInducted ? formatDate(m.dateInducted) : 'N/A';
+                const pctColor = pct >= 60 ? [39, 174, 96] : pct >= 40 ? [230, 126, 34] : [231, 76, 60];
+                
                 pdf.setTextColor(0, 0, 0);
                 pdf.text(\`\${m.fullName}\`, 20, y);
-                pdf.text(\`\${m.meetings.elections} / \${meetTotal}\`, 95, y);
-                pdf.setTextColor(39, 174, 96);
-                pdf.text(\`\${pct}%\`, 130, y);
+                pdf.setTextColor(127, 140, 141);
+                pdf.text(inductionDate.substring(0, 12), 75, y);
+                pdf.setTextColor(0, 0, 0);
+                pdf.text(\`\${m.meetings.elections}/\${meetTotal}\`, 110, y);
+                pdf.setTextColor(pctColor[0], pctColor[1], pctColor[2]);
+                pdf.text(\`\${pct}%\`, 148, y);
                 pdf.setTextColor(100, 100, 100);
-                const emailDisplay = (m.email || 'N/A').length > 28 ? (m.email || 'N/A').substring(0, 25) + '...' : (m.email || 'N/A');
-                pdf.text(emailDisplay, 160, y);
+                const emailDisplay = (m.email || 'N/A').length > 20 ? (m.email || 'N/A').substring(0, 17) + '...' : (m.email || 'N/A');
+                pdf.text(emailDisplay, 170, y);
                 y += 7;
             });
             
