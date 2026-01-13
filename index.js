@@ -602,29 +602,51 @@ const HTML_CONTENT = `<!DOCTYPE html>
             return null;
         }
         
-        // Check if member joined during the specified period
+        // Check if member joined during the specified period IN THE CURRENT ROTARACT YEAR
         function memberJoinedDuringPeriod(member, period) {
             if (!member.dateInducted) return false;
+            
+            const inductionDate = new Date(member.dateInducted);
+            if (isNaN(inductionDate)) return false;
+            
+            // Determine current Rotaract year boundaries (July 1 to June 30)
+            const today = new Date();
+            const currentYear = today.getFullYear();
+            const currentMonth = today.getMonth() + 1;
+            
+            let ryStart, ryEnd;
+            if (currentMonth >= 7) {
+                ryStart = new Date(currentYear, 6, 1);      // July 1 this year
+                ryEnd = new Date(currentYear + 1, 5, 30);   // June 30 next year
+            } else {
+                ryStart = new Date(currentYear - 1, 6, 1);  // July 1 last year
+                ryEnd = new Date(currentYear, 5, 30);       // June 30 this year
+            }
+            
+            // Only consider excluding if joined during CURRENT Rotaract year
+            if (inductionDate < ryStart) {
+                return false;  // Joined in previous Rotaract years - don't exclude from warnings
+            }
+            
             const joinQuarter = getQuarterFromDate(member.dateInducted);
             if (!joinQuarter) return false;
             
             // For single quarters, check direct match
             if (period === joinQuarter) return true;
             
-            // For h1, check if joined in Q1 or Q2
+            // For h1, check if joined in Q1 or Q2 of current year
             if (period === 'h1' && (joinQuarter === 'q1' || joinQuarter === 'q2')) return true;
             
-            // For h2, check if joined in Q3 or Q4
+            // For h2, check if joined in Q3 or Q4 of current year
             if (period === 'h2' && (joinQuarter === 'q3' || joinQuarter === 'q4')) return true;
             
-            // For annual, any quarter counts
+            // For annual, check if joined this Rotaract year (already filtered above)
             if (period === 'annual') return true;
             
-            // For elections (Q1+Q2+Jan), check Q1, Q2, or January
+            // For elections (Q1+Q2+Jan), check Q1, Q2, or January of current year
             if (period === 'elections') {
                 if (joinQuarter === 'q1' || joinQuarter === 'q2') return true;
-                const d = new Date(member.dateInducted);
-                if (d.getMonth() === 0) return true; // January
+                if (inductionDate.getMonth() === 0) return true; // January
             }
             
             return false;
@@ -1640,6 +1662,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
         async function generateElectionsEligibilityPDF() {
             const meetTotal = meetingTotals.elections || TOTALS.elections.meetings || 1;
             const eligible = members.filter(m => !m.isTerminated && isElectionsEligible(m));
+            const notEligible = members.filter(m => !m.isTerminated && !isElectionsEligible(m));
             
             if (eligible.length === 0) {
                 alert('No members currently eligible for elections!');
@@ -1649,64 +1672,96 @@ const HTML_CONTENT = `<!DOCTYPE html>
             const { jsPDF } = window.jspdf;
             const pdf = new jsPDF('p', 'mm', 'a4');
             
-            pdf.setFontSize(20);
-            pdf.setTextColor(233, 30, 99);
-            pdf.text('Rotaract Club of University of Guyana', 105, 20, { align: 'center' });
-            
-            pdf.setFontSize(16);
-            pdf.setTextColor(155, 89, 182);
-            pdf.text('Elections Eligibility Report', 105, 30, { align: 'center' });
-            
-            pdf.setFontSize(12);
-            pdf.setTextColor(100, 100, 100);
-            pdf.text('Members eligible to vote and run for office (Bylaws Article 7)', 105, 38, { align: 'center' });
-            pdf.text(\`Period: Q1 + Q2 + January | Required: 60% Attendance\`, 105, 45, { align: 'center' });
-            
-            pdf.setFontSize(11);
-            pdf.setTextColor(39, 174, 96);
-            pdf.text(\`Total Eligible: \${eligible.length} members\`, 105, 55, { align: 'center' });
-            
-            pdf.setFontSize(10);
-            pdf.setTextColor(0, 0, 0);
-            
-            // Table headers
-            let y = 65;
+            // Header with club branding
             pdf.setFillColor(233, 30, 99);
-            pdf.rect(15, y - 5, 180, 8, 'F');
+            pdf.rect(0, 0, 210, 35, 'F');
+            
+            pdf.setFontSize(22);
             pdf.setTextColor(255, 255, 255);
+            pdf.text('Rotaract Club of University of Guyana', 105, 15, { align: 'center' });
+            
+            pdf.setFontSize(14);
+            pdf.text('Elections Eligibility Report', 105, 25, { align: 'center' });
+            
+            // Metadata section
+            pdf.setFontSize(10);
+            pdf.setTextColor(100, 100, 100);
+            pdf.text('Per Bylaws Article 7, Section 1 - Members eligible to vote and run for office', 105, 45, { align: 'center' });
+            pdf.text(\`Eligibility Period: Q1 (Jul-Sep) + Q2 (Oct-Dec) + January | Required: 60% Attendance\`, 105, 52, { align: 'center' });
+            
+            // Summary boxes
+            pdf.setFillColor(39, 174, 96);
+            pdf.roundedRect(30, 58, 70, 15, 3, 3, 'F');
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFontSize(12);
+            pdf.text(\`✓ Eligible: \${eligible.length}\`, 65, 67, { align: 'center' });
+            
+            pdf.setFillColor(231, 76, 60);
+            pdf.roundedRect(110, 58, 70, 15, 3, 3, 'F');
+            pdf.text(\`✗ Not Eligible: \${notEligible.length}\`, 145, 67, { align: 'center' });
+            
+            // Table header
+            let y = 85;
+            pdf.setFillColor(52, 73, 94);
+            pdf.rect(15, y - 6, 180, 10, 'F');
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFontSize(10);
             pdf.text('Name', 20, y);
-            pdf.text('Meetings', 100, y);
-            pdf.text('Attendance', 130, y);
+            pdf.text('Meetings', 95, y);
+            pdf.text('Attendance %', 125, y);
             pdf.text('Email', 160, y);
             
-            y += 10;
+            y += 8;
             pdf.setTextColor(0, 0, 0);
+            pdf.setFontSize(9);
             
             eligible.forEach((m, idx) => {
-                if (y > 270) {
+                if (y > 265) {
                     pdf.addPage();
+                    // Repeat header on new page
                     y = 20;
+                    pdf.setFillColor(52, 73, 94);
+                    pdf.rect(15, y - 6, 180, 10, 'F');
+                    pdf.setTextColor(255, 255, 255);
+                    pdf.setFontSize(10);
+                    pdf.text('Name', 20, y);
+                    pdf.text('Meetings', 95, y);
+                    pdf.text('Attendance %', 125, y);
+                    pdf.text('Email', 160, y);
+                    y += 8;
+                    pdf.setTextColor(0, 0, 0);
+                    pdf.setFontSize(9);
                 }
                 
                 // Alternate row colors
                 if (idx % 2 === 0) {
-                    pdf.setFillColor(245, 245, 245);
+                    pdf.setFillColor(245, 247, 250);
                     pdf.rect(15, y - 4, 180, 7, 'F');
                 }
                 
                 const pct = Math.round(meetTotal > 0 ? (m.meetings.elections / meetTotal) * 100 : 0);
+                pdf.setTextColor(0, 0, 0);
                 pdf.text(\`\${m.fullName}\`, 20, y);
-                pdf.text(\`\${m.meetings.elections}/\${meetTotal}\`, 100, y);
+                pdf.text(\`\${m.meetings.elections} / \${meetTotal}\`, 95, y);
                 pdf.setTextColor(39, 174, 96);
                 pdf.text(\`\${pct}%\`, 130, y);
-                pdf.setTextColor(0, 0, 0);
-                pdf.text(\`\${(m.email || 'N/A').substring(0, 25)}\`, 160, y);
+                pdf.setTextColor(100, 100, 100);
+                const emailDisplay = (m.email || 'N/A').length > 28 ? (m.email || 'N/A').substring(0, 25) + '...' : (m.email || 'N/A');
+                pdf.text(emailDisplay, 160, y);
                 y += 7;
             });
             
+            // Footer
+            pdf.setFillColor(240, 240, 240);
+            pdf.rect(0, 275, 210, 22, 'F');
             pdf.setFontSize(8);
-            pdf.setTextColor(150, 150, 150);
-            pdf.text(\`Generated: \${new Date().toLocaleString()} | For Secretary's distribution\`, 105, 285, { align: 'center' });
+            pdf.setTextColor(100, 100, 100);
+            pdf.text(\`Generated: \${new Date().toLocaleString()}\`, 20, 282);
+            pdf.text('Prepared by: Membership Chair', 105, 282, { align: 'center' });
+            pdf.text('For Secretary Distribution', 190, 282, { align: 'right' });
+            
+            pdf.setFontSize(7);
+            pdf.text('This list shall be shared to all members by January Fellowship Meeting (Bylaws Art. 7, Sec. 1)', 105, 289, { align: 'center' });
             
             pdf.save(\`RCUG_Elections_Eligibility_\${new Date().getFullYear()}.pdf\`);
         }
