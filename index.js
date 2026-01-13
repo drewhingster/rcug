@@ -286,7 +286,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                             <option value="11">November</option>
                             <option value="12">December</option>
                         </select>
-                        <button class="export-btn" onclick="generateBirthdayPDF()" id="birthdayExportBtn" disabled>�„ Export PDF</button>
+                        <button class="export-btn" onclick="generateBirthdayPDF()" id="birthdayExportBtn" disabled>✨ Export PDF</button>
                     </div>
                     <div id="birthdayReportTable" class="report-table"></div>
                 </div>
@@ -311,7 +311,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                             <option value="11">November</option>
                             <option value="12">December</option>
                         </select>
-                        <button class="export-btn" onclick="generateAnniversaryPDF()" id="anniversaryExportBtn" disabled>�„ Export PDF</button>
+                        <button class="export-btn" onclick="generateAnniversaryPDF()" id="anniversaryExportBtn" disabled>✨ Export PDF</button>
                     </div>
                     <div id="anniversaryReportTable" class="report-table"></div>
                 </div>
@@ -330,7 +330,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                             <option value="h2">Half 2 (Q3 + Q4)</option>
                             <option value="annual">Annual (Full Year)</option>
                         </select>
-                        <button class="export-btn" onclick="generateAttendanceWarningPDF()">�„ Export PDF</button>
+                        <button class="export-btn" onclick="generateAttendanceWarningPDF()">✨ Export PDF</button>
                         <button class="export-btn" onclick="generateAttendanceWarningCSV()">📊 Export CSV</button>
                     </div>
                     <div id="attendanceWarningTable" class="report-table"></div>
@@ -341,7 +341,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     <h2 class="report-title">⭐ Guest Eligibility Report</h2>
                     <p class="report-description">Guests who have met membership requirements and are ready for proposal</p>
                     <div class="report-controls">
-                        <button class="export-btn" onclick="generateGuestEligibilityPDF()">�„ Export PDF</button>
+                        <button class="export-btn" onclick="generateGuestEligibilityPDF()">✨ Export PDF</button>
                         <button class="export-btn" onclick="generateGuestEligibilityCSV()">📊 Export CSV</button>
                     </div>
                     <div id="guestEligibilityTable" class="report-table"></div>
@@ -379,6 +379,23 @@ const HTML_CONTENT = `<!DOCTYPE html>
         const BOARD_MEMBERS = ['Adanna Edwards', 'Andrew Hing', 'Christine Samuels', 'Darin Hall', 'Ganesh Anand', 'Jemima Stephenson', 'Kadeem Bowen', 'Nandita Singh', 'Omari London', 'Ruth Manbodh', 'Vishal Roopnarine', 'Yushina Ramlall'];
         
         let members = [], guests = [], allAttendance = [], boardAttendance = {}, currentTab = 'members', currentPeriod = 'h1';
+        let projectTotals = { q1: 0, q2: 0, q3: 0, q4: 0, h1: 0, h2: 0, annual: 0, elections: 0 };
+        
+        // Calculate dynamic project totals from attendance data
+        function calculateProjectTotals() {
+            const periods = ['q1', 'q2', 'q3', 'q4', 'h1', 'h2', 'annual', 'elections'];
+            periods.forEach(p => {
+                const projectDates = allAttendance.filter(a => {
+                    if (a.type !== 'Project') return false;
+                    if (p === 'elections') return a.quarter === 'Elections Period';
+                    if (p === 'h1') return a.quarter === 'Q1' || a.quarter === 'Q2';
+                    if (p === 'h2') return a.quarter === 'Q3' || a.quarter === 'Q4';
+                    if (p === 'annual') return ['Q1', 'Q2', 'Q3', 'Q4'].includes(a.quarter);
+                    return a.quarter === p.toUpperCase();
+                }).map(a => a.dateKey).filter((v, i, arr) => arr.indexOf(v) === i);
+                projectTotals[p] = projectDates.length;
+            });
+        }
         
         // Data Loading Functions
         async function fetchCSV(url, name) {
@@ -404,25 +421,12 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 if (memberData.length === 0) throw new Error('Could not load member data');
                 
                 processAttendance(attData);
+                calculateProjectTotals();
                 processBoard(boardData);
                 processGuests(guestData);
                 processMembers(memberData);
                 linkNewMembersData();
                 calculateMemberStats();
-                
-                // DEBUG: Log data to console
-                console.log('=== DEBUG INFO ===');
-                console.log('All Attendance records:', allAttendance.length);
-                console.log('Sample attendance (first 5):', allAttendance.slice(0, 5));
-                console.log('Unique meeting types:', [...new Set(allAttendance.map(a => a.type))]);
-                console.log('Unique quarters:', [...new Set(allAttendance.map(a => a.quarter))]);
-                console.log('Members loaded:', members.length);
-                console.log('Andrew attendance:', allAttendance.filter(a => a.name && a.name.includes('Andrew')));
-                const andrewDebug = members.find(m => m.fullName && m.fullName.includes('Andrew'));
-                if (andrewDebug) {
-                    console.log('Andrew member object meetings:', andrewDebug.meetings);
-                }
-                console.log('=== END DEBUG ===');
                 
                 if (members.length === 0) throw new Error('No members found after processing.');
                 
@@ -728,7 +732,8 @@ const HTML_CONTENT = `<!DOCTYPE html>
         
         function renderMemberCard(m) {
             const pct = (m.meetings[currentPeriod] / TOTALS[currentPeriod].meetings) * 100;
-            const projPct = (m.projects[currentPeriod] / TOTALS[currentPeriod].projects) * 100;
+            const projTotal = projectTotals[currentPeriod] || 0;
+            const projPct = projTotal > 0 ? (m.projects[currentPeriod] / projTotal) * 100 : 0;
             
             let statusClass = 'good', statusText = 'Good Standing';
             if (m.isTerminated) { statusClass = 'terminated'; statusText = 'Terminated'; }
@@ -760,7 +765,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             return \`
                 <div class="member-card \${statusClass}" onclick="showMemberDetails('\${m.fullName.replace(/'/g, "\\\\'")}')">
                     <div class="card-actions">
-                        <button class="card-action-btn" onclick="event.stopPropagation(); exportMemberCard('\${m.fullName.replace(/'/g, "\\\\'")}')">�„ Export</button>
+                        <button class="card-action-btn" onclick="event.stopPropagation(); exportMemberCard('\${m.fullName.replace(/'/g, "\\\\'")}')">✨ Export</button>
                     </div>
                     <div class="card-header">
                         <div>
@@ -781,7 +786,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                         <div class="progress-bar">
                             <div class="progress-fill projects" style="width: \${projPct}%"></div>
                         </div>
-                        <span class="progress-value">\${m.projects[currentPeriod]}/\${TOTALS[currentPeriod].projects} (\${Math.round(projPct)}%)</span>
+                        <span class="progress-value">\${m.projects[currentPeriod]}/\${projTotal} (\${Math.round(projPct)}%)</span>
                     </div>
                     \${boardSection}
                 </div>
@@ -814,7 +819,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
         function renderGuestCard(g) {
             const eligible = isEligible(g);
             const statusClass = eligible ? 'eligible' : g.ug ? 'guest' : 'notug';
-            const statusText = eligible ? '✅ Eligible' : !g.info ? '� Info Session Needed' : !g.ug ? '❌ Not UG' : '⏳ In Progress';
+            const statusText = eligible ? '✅ Eligible' : !g.info ? '❓ Info Session Needed' : !g.ug ? '❌ Not UG' : '⏳ In Progress';
             
             return \`
                 <div class="member-card \${statusClass}">
@@ -896,7 +901,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 <div class="modal-header">
                     <div class="modal-name">\${m.fullName}</div>
                     <div class="modal-email">\${m.email || 'No email on file'}</div>
-                    \${m.contact ? \`<div class="modal-contact">�ž \${m.contact}</div>\` : ''}
+                    \${m.contact ? \`<div class="modal-contact">📞 \${m.contact}</div>\` : ''}
                 </div>
                 
                 <div class="detail-section">
@@ -1184,7 +1189,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                                     <td>\${m.fullName}</td>
                                     <td>\${m.meetings[period]}/\${TOTALS[period].meetings}</td>
                                     <td style="color:\${pct < 50 ? '#e74c3c' : '#e67e22'}">\${pct}%</td>
-                                    <td>\${m.projects[period]}/\${TOTALS[period].projects}</td>
+                                    <td>\${m.projects[period]}/\${projectTotals[period] || 0}</td>
                                     <td>\${m.email || 'N/A'}</td>
                                 </tr>
                             \`;
