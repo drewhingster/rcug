@@ -592,8 +592,8 @@ const HTML_CONTENT = `<!DOCTYPE html>
         // Get Rotaract quarter from date (Q1=Jul-Sep, Q2=Oct-Dec, Q3=Jan-Mar, Q4=Apr-Jun)
         function getQuarterFromDate(dateStr) {
             if (!dateStr) return null;
-            const d = new Date(dateStr);
-            if (isNaN(d)) return null;
+            const d = parseInductionDate(dateStr);
+            if (!d) return null;
             const month = d.getMonth() + 1; // 1-12
             if (month >= 7 && month <= 9) return 'q1';
             if (month >= 10 && month <= 12) return 'q2';
@@ -606,8 +606,8 @@ const HTML_CONTENT = `<!DOCTYPE html>
         function memberJoinedDuringPeriod(member, period) {
             if (!member.dateInducted) return false;
             
-            const inductionDate = new Date(member.dateInducted);
-            if (isNaN(inductionDate)) return false;
+            const inductionDate = parseInductionDate(member.dateInducted);
+            if (!inductionDate) return false;
             
             // Determine current Rotaract year boundaries (July 1 to June 30)
             const today = new Date();
@@ -1618,6 +1618,50 @@ const HTML_CONTENT = `<!DOCTYPE html>
             return stats.pct >= 60;
         }
         
+        // Robust date parser that handles various formats and whitespace issues
+        function parseInductionDate(dateStr) {
+            if (!dateStr) return null;
+            
+            // Clean the string - remove extra whitespace, non-breaking spaces, etc.
+            let cleaned = dateStr.toString().trim().replace(/\\s+/g, ' ').replace(/\\u00A0/g, ' ');
+            
+            // Try direct parsing first
+            let d = new Date(cleaned);
+            if (!isNaN(d) && d.getFullYear() > 2000) return d;
+            
+            // Try parsing "7 December 2025" format manually
+            const months = {
+                'january': 0, 'february': 1, 'march': 2, 'april': 3, 'may': 4, 'june': 5,
+                'july': 6, 'august': 7, 'september': 8, 'october': 9, 'november': 10, 'december': 11,
+                'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'jun': 5, 'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
+            };
+            
+            // Match "7 December 2025" or "December 7, 2025" or "7 Dec 2025"
+            const match1 = cleaned.match(/(\\d{1,2})\\s+(\\w+)\\s+(\\d{4})/i);
+            if (match1) {
+                const day = parseInt(match1[1]);
+                const month = months[match1[2].toLowerCase()];
+                const year = parseInt(match1[3]);
+                if (month !== undefined && day >= 1 && day <= 31 && year > 2000) {
+                    return new Date(year, month, day);
+                }
+            }
+            
+            // Match "December 7, 2025"
+            const match2 = cleaned.match(/(\\w+)\\s+(\\d{1,2}),?\\s+(\\d{4})/i);
+            if (match2) {
+                const month = months[match2[1].toLowerCase()];
+                const day = parseInt(match2[2]);
+                const year = parseInt(match2[3]);
+                if (month !== undefined && day >= 1 && day <= 31 && year > 2000) {
+                    return new Date(year, month, day);
+                }
+            }
+            
+            console.log('Failed to parse induction date:', dateStr, '-> cleaned:', cleaned);
+            return null;
+        }
+        
         // Calculate elections period attendance based on meetings AFTER member's induction date
         // This ensures members inducted mid-period are only evaluated on meetings they could attend
         function getElectionsAttendanceStats(m) {
@@ -1630,14 +1674,13 @@ const HTML_CONTENT = `<!DOCTYPE html>
             
             // If member has induction date, only count meetings AFTER that date
             let eligibleMeetingDates = electionsMeetingDates;
-            if (m.dateInducted) {
-                const inductionDate = new Date(m.dateInducted);
-                if (!isNaN(inductionDate)) {
-                    eligibleMeetingDates = electionsMeetingDates.filter(dateKey => {
-                        const meetingDate = new Date(dateKey);
-                        return meetingDate >= inductionDate;
-                    });
-                }
+            const inductionDate = parseInductionDate(m.dateInducted);
+            
+            if (inductionDate) {
+                eligibleMeetingDates = electionsMeetingDates.filter(dateKey => {
+                    const meetingDate = new Date(dateKey);
+                    return meetingDate >= inductionDate;
+                });
             }
             
             const total = eligibleMeetingDates.length;
@@ -1654,7 +1697,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 attended, 
                 total, 
                 pct: Math.round(pct),
-                inductionAdjusted: m.dateInducted ? true : false
+                inductionAdjusted: inductionDate ? true : false
             };
         }
         
@@ -1763,10 +1806,9 @@ const HTML_CONTENT = `<!DOCTYPE html>
             pdf.setTextColor(255, 255, 255);
             pdf.setFontSize(10);
             pdf.text('Name', 20, y);
-            pdf.text('Inducted', 75, y);
-            pdf.text('Meetings', 110, y);
-            pdf.text('Attendance', 145, y);
-            pdf.text('Email', 175, y);
+            pdf.text('Inducted', 90, y);
+            pdf.text('Meetings', 130, y);
+            pdf.text('Attendance', 165, y);
             
             y += 8;
             pdf.setTextColor(0, 0, 0);
@@ -1789,10 +1831,9 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     pdf.setTextColor(255, 255, 255);
                     pdf.setFontSize(10);
                     pdf.text('Name', 20, y);
-                    pdf.text('Inducted', 75, y);
-                    pdf.text('Meetings', 110, y);
-                    pdf.text('Attendance', 145, y);
-                    pdf.text('Email', 175, y);
+                    pdf.text('Inducted', 90, y);
+                    pdf.text('Meetings', 130, y);
+                    pdf.text('Attendance', 165, y);
                     y += 8;
                     pdf.setTextColor(0, 0, 0);
                     pdf.setFontSize(9);
@@ -1815,14 +1856,11 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 pdf.setTextColor(0, 0, 0);
                 pdf.text(nameDisplay, 20, y);
                 pdf.setTextColor(127, 140, 141);
-                pdf.text(inductionDate.substring(0, 12), 75, y);
+                pdf.text(inductionDate, 90, y);
                 pdf.setTextColor(0, 0, 0);
-                pdf.text(stats.attended + '/' + stats.total, 110, y);
+                pdf.text(stats.attended + '/' + stats.total, 135, y);
                 pdf.setTextColor(pctColor[0], pctColor[1], pctColor[2]);
-                pdf.text(stats.pct + '%', 148, y);
-                pdf.setTextColor(100, 100, 100);
-                const emailDisplay = (m.email || 'N/A').length > 20 ? (m.email || 'N/A').substring(0, 17) + '...' : (m.email || 'N/A');
-                pdf.text(emailDisplay, 170, y);
+                pdf.text(stats.pct + '%', 172, y);
                 y += 7;
             });
             
