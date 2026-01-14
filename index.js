@@ -508,8 +508,9 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 const r = data[i];
                 if (r[0] && r[0].includes('QUARTER BOARD MEETING')) { currentQuarter++; continue; }
                 if (r[0] === 'First Name' || !r[0] || r[0] === 'Total') continue;
-                const name = \`\${(r[0] || '').trim()} \${(r[1] || '').trim()}\`.trim();
-                if (!name || name === ' ') continue;
+                const rawName = \`\${(r[0] || '').trim()} \${(r[1] || '').trim()}\`.trim();
+                if (!rawName || rawName === ' ') continue;
+                const name = normalizeName(rawName);
                 if (!boardAttendance[name]) boardAttendance[name] = { total: 0, q1: 0, q2: 0, q3: 0, q4: 0 };
                 let qTotal = 0;
                 for (let j = 2; j <= 4; j++) if (r[j] == 1 || r[j] === '1') qTotal++;
@@ -704,15 +705,16 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     projects: { q1: 0, q2: 0, q3: 0, q4: 0, h1: 0, h2: 0, annual: 0, elections: 0 },
                     meetingDetails: { q1: [], q2: [], q3: [], q4: [], h1: [], h2: [], annual: [], elections: [] },
                     missedMeetings: { q1: [], q2: [], q3: [], q4: [], h1: [], h2: [], annual: [], elections: [] },
-                    boardMeetings: isBoardMember && boardAttendance[name] ? boardAttendance[name] : null
+                    boardMeetings: isBoardMember && boardAttendance[normalizeName(name)] ? boardAttendance[normalizeName(name)] : null
                 });
             }
         }
         
         function linkNewMembersData() {
             NEW_MEMBERS_DEC7.forEach(name => {
-                const member = members.find(m => m.fullName === name);
-                const guest = guests.find(g => g.fullName === name);
+                const normalizedTarget = normalizeName(name);
+                const member = members.find(m => normalizeName(m.fullName) === normalizedTarget);
+                const guest = guests.find(g => normalizeName(g.fullName) === normalizedTarget);
                 if (member && guest) {
                     member.meetings.q1 = guest.meetings;
                     member.projects.q1 = guest.projects;
@@ -722,11 +724,31 @@ const HTML_CONTENT = `<!DOCTYPE html>
             });
         }
         
+        // Normalize name for matching - handles whitespace, case, special characters
+        function normalizeName(name) {
+            if (!name) return '';
+            return name.toString()
+                .trim()
+                .toLowerCase()
+                .replace(/\\s+/g, ' ')           // Multiple spaces to single
+                .replace(/[\\u00A0]/g, ' ')      // Non-breaking space to regular
+                .replace(/[''`]/g, "'")         // Smart quotes to regular
+                .replace(/[^a-z\\s'-]/g, '');   // Remove other special chars
+        }
+        
         function calculateMemberStats() {
+            // Pre-normalize all attendance names for efficient matching
+            const normalizedAttendance = allAttendance.map(a => ({
+                ...a,
+                normalizedName: normalizeName(a.name)
+            }));
+            
             members.forEach(m => {
+                const memberNormalizedName = normalizeName(m.fullName);
+                
                 ['q1', 'q2', 'q3', 'q4', 'h1', 'h2', 'annual', 'elections'].forEach(p => {
-                    const att = allAttendance.filter(a => {
-                        if (a.name !== m.fullName) return false;
+                    const att = normalizedAttendance.filter(a => {
+                        if (a.normalizedName !== memberNormalizedName) return false;
                         // Elections = Q1 + Q2 + January meetings (month 1)
                         if (p === 'elections') return a.quarter === 'Q1' || a.quarter === 'Q2' || a.month === 1;
                         if (p === 'h1') return a.quarter === 'Q1' || a.quarter === 'Q2';
