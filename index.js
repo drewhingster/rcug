@@ -1633,6 +1633,32 @@ const HTML_CONTENT = `<!DOCTYPE html>
         function isElectionsEligible(m) {
             if (m.isTerminated) return false;
             
+            // Members inducted in Q2 (Oct-Dec) of current Rotaract year are automatically eligible
+            // They haven't had enough meetings to fairly evaluate attendance
+            const inductionDate = parseInductionDate(m.dateInducted);
+            if (inductionDate) {
+                // Determine current Rotaract year Q2 boundaries (Oct 1 - Dec 31)
+                const today = new Date();
+                const currentYear = today.getFullYear();
+                const currentMonth = today.getMonth() + 1;
+                
+                let q2Start, q2End;
+                if (currentMonth >= 7) {
+                    // We're in Jul-Dec of current year (first half of Rotaract year)
+                    q2Start = new Date(currentYear, 9, 1);      // Oct 1 this year
+                    q2End = new Date(currentYear, 11, 31);      // Dec 31 this year
+                } else {
+                    // We're in Jan-Jun (second half of Rotaract year)
+                    q2Start = new Date(currentYear - 1, 9, 1);  // Oct 1 last year
+                    q2End = new Date(currentYear - 1, 11, 31);  // Dec 31 last year
+                }
+                
+                // If inducted during Q2, automatically eligible
+                if (inductionDate >= q2Start && inductionDate <= q2End) {
+                    return true;
+                }
+            }
+            
             // Get elections attendance stats adjusted for induction date
             const stats = getElectionsAttendanceStats(m);
             
