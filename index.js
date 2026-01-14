@@ -1713,10 +1713,6 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     </tbody>
                 </table>
             \`;
-                        }).join('')}
-                    </tbody>
-                </table>
-            \`;
         }
         
         async function generateElectionsEligibilityPDF() {
