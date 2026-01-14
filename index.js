@@ -732,7 +732,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 .toLowerCase()
                 .replace(/\\s+/g, ' ')           // Multiple spaces to single
                 .replace(/[\\u00A0]/g, ' ')      // Non-breaking space to regular
-                .replace(/[''`]/g, "'")         // Smart quotes to regular
+                .replace(/[\\u2018\\u2019\\u0060]/g, "'")  // Smart quotes and backtick to regular apostrophe
                 .replace(/[^a-z\\s'-]/g, '');   // Remove other special chars
         }
         
