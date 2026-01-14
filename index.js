@@ -1742,15 +1742,19 @@ const HTML_CONTENT = `<!DOCTYPE html>
             // Metadata section - corrected bylaws reference
             pdf.setFontSize(10);
             pdf.setTextColor(100, 100, 100);
-            pdf.text('Per Bylaws Article 5, Section 8 - Active/Inactive members eligible to vote', 105, 45, { align: 'center' });
-            pdf.text('Attendance shown for nominations consideration (Art. 7, Sec. 1)', 105, 52, { align: 'center' });
+            pdf.text('Per Bylaws Article 7, Section 1 - Members meeting attendance & financial requirements', 105, 45, { align: 'center' });
+            pdf.text('60% attendance required (Q1 + Q2 + January) to be eligible for nominations', 105, 52, { align: 'center' });
             
-            // Summary box - single green box for eligible voters
+            // Summary boxes - eligible and not eligible
             pdf.setFillColor(39, 174, 96);
-            pdf.roundedRect(55, 58, 100, 15, 3, 3, 'F');
+            pdf.roundedRect(25, 58, 75, 15, 3, 3, 'F');
             pdf.setTextColor(255, 255, 255);
-            pdf.setFontSize(12);
-            pdf.text(\`✓ Eligible to Vote: \${eligible.length} members\`, 105, 67, { align: 'center' });
+            pdf.setFontSize(11);
+            pdf.text('Eligible: ' + eligible.length + ' members', 62.5, 67, { align: 'center' });
+            
+            pdf.setFillColor(231, 76, 60);
+            pdf.roundedRect(110, 58, 75, 15, 3, 3, 'F');
+            pdf.text('Not Eligible: ' + notEligible.length + ' members', 147.5, 67, { align: 'center' });
             
             // Table header
             let y = 85;
@@ -1768,11 +1772,11 @@ const HTML_CONTENT = `<!DOCTYPE html>
             pdf.setTextColor(0, 0, 0);
             pdf.setFontSize(9);
             
-            // Sort by attendance for nominations consideration
+            // Sort by attendance for nominations consideration (using adjusted stats)
             const sortedEligible = [...eligible].sort((a, b) => {
-                const aPct = (a.meetings.elections / meetTotal) * 100;
-                const bPct = (b.meetings.elections / meetTotal) * 100;
-                return bPct - aPct;
+                const aStats = getElectionsAttendanceStats(a);
+                const bStats = getElectionsAttendanceStats(b);
+                return bStats.pct - aStats.pct;
             });
             
             sortedEligible.forEach((m, idx) => {
@@ -1800,18 +1804,22 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     pdf.rect(15, y - 4, 180, 7, 'F');
                 }
                 
-                const pct = Math.round(meetTotal > 0 ? (m.meetings.elections / meetTotal) * 100 : 0);
+                // Use adjusted stats for proper induction-date-aware calculations
+                const stats = getElectionsAttendanceStats(m);
                 const inductionDate = m.dateInducted ? formatDate(m.dateInducted) : 'N/A';
-                const pctColor = pct >= 60 ? [39, 174, 96] : pct >= 40 ? [230, 126, 34] : [231, 76, 60];
+                const pctColor = stats.pct >= 60 ? [39, 174, 96] : stats.pct >= 40 ? [230, 126, 34] : [231, 76, 60];
+                
+                // Add asterisk for members with adjusted meeting counts
+                const nameDisplay = (stats.total < meetTotal && m.dateInducted) ? m.fullName + ' *' : m.fullName;
                 
                 pdf.setTextColor(0, 0, 0);
-                pdf.text(\`\${m.fullName}\`, 20, y);
+                pdf.text(nameDisplay, 20, y);
                 pdf.setTextColor(127, 140, 141);
                 pdf.text(inductionDate.substring(0, 12), 75, y);
                 pdf.setTextColor(0, 0, 0);
-                pdf.text(\`\${m.meetings.elections}/\${meetTotal}\`, 110, y);
+                pdf.text(stats.attended + '/' + stats.total, 110, y);
                 pdf.setTextColor(pctColor[0], pctColor[1], pctColor[2]);
-                pdf.text(\`\${pct}%\`, 148, y);
+                pdf.text(stats.pct + '%', 148, y);
                 pdf.setTextColor(100, 100, 100);
                 const emailDisplay = (m.email || 'N/A').length > 20 ? (m.email || 'N/A').substring(0, 17) + '...' : (m.email || 'N/A');
                 pdf.text(emailDisplay, 170, y);
@@ -1820,21 +1828,21 @@ const HTML_CONTENT = `<!DOCTYPE html>
             
             // Footer
             pdf.setFillColor(240, 240, 240);
-            pdf.rect(0, 275, 210, 22, 'F');
+            pdf.rect(0, 270, 210, 27, 'F');
             pdf.setFontSize(8);
             pdf.setTextColor(100, 100, 100);
-            pdf.text(\`Generated: \${new Date().toLocaleString()}\`, 20, 282);
-            pdf.text('Prepared by: Membership Chair', 105, 282, { align: 'center' });
-            pdf.text('For Secretary Distribution', 190, 282, { align: 'right' });
+            pdf.text('Generated: ' + new Date().toLocaleString(), 20, 277);
+            pdf.text('Prepared by: Membership Chair', 105, 277, { align: 'center' });
+            pdf.text('For Secretary Distribution', 190, 277, { align: 'right' });
             
             pdf.setFontSize(7);
-            pdf.text('This list shall be shared to all members by January Fellowship Meeting (Bylaws Art. 7, Sec. 1)', 105, 289, { align: 'center' });
+            pdf.text('* Members inducted mid-period are evaluated only on meetings after their induction date', 105, 284, { align: 'center' });
+            pdf.text('This list shall be shared to all members by January Fellowship Meeting (Bylaws Art. 7, Sec. 1)', 105, 290, { align: 'center' });
             
-            pdf.save(\`RCUG_Elections_Eligibility_\${new Date().getFullYear()}.pdf\`);
+            pdf.save('RCUG_Elections_Eligibility_' + new Date().getFullYear() + '.pdf');
         }
         
         function generateElectionsEligibilityCSV() {
-            const meetTotal = meetingTotals.elections || TOTALS.elections.meetings || 1;
             const eligible = members.filter(m => !m.isTerminated && isElectionsEligible(m));
             
             if (eligible.length === 0) {
@@ -1842,17 +1850,18 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 return;
             }
             
-            let csv = 'Name,Meetings Attended,Total Meetings,Attendance %,Email\\n';
+            let csv = 'Name,Induction Date,Meetings Attended,Total Meetings,Attendance %,Email\\n';
             eligible.forEach(m => {
-                const pct = Math.round(meetTotal > 0 ? (m.meetings.elections / meetTotal) * 100 : 0);
-                csv += \`"\${m.fullName}",\${m.meetings.elections},\${meetTotal},\${pct}%,"\${m.email || 'N/A'}"\\n\`;
+                const stats = getElectionsAttendanceStats(m);
+                const inductionDate = m.dateInducted ? formatDate(m.dateInducted) : 'N/A';
+                csv += '"' + m.fullName + '","' + inductionDate + '",' + stats.attended + ',' + stats.total + ',' + stats.pct + '%,"' + (m.email || 'N/A') + '"\\n';
             });
             
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = \`RCUG_Elections_Eligibility_\${new Date().getFullYear()}.csv\`;
+            a.download = 'RCUG_Elections_Eligibility_' + new Date().getFullYear() + '.csv';
             a.click();
         }
         
