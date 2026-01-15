@@ -530,6 +530,22 @@ const HTML_CONTENT = `<!DOCTYPE html>
             for (let i = (hdr >= 0 ? hdr : 1) + 1; i < data.length; i++) {
                 const r = data[i];
                 if (!r[0] || r[0] === 'First Name' || r[0] === 'NaN') continue;
+                
+                // Skip section headers (e.g., "CLUB REGISTER – 2nd QUARTER...")
+                // These are identified by: containing header keywords or being all caps with no last name
+                const firstCell = (r[0] || '').toString().trim();
+                const firstCellUpper = firstCell.toUpperCase();
+                
+                // Check for header keywords (case-insensitive)
+                const headerKeywords = ['CLUB', 'REGISTER', 'QUARTER', 'ATTENDANCE', 'MEETING', 'PROJECT'];
+                const isHeader = headerKeywords.some(keyword => firstCellUpper.includes(keyword));
+                if (isHeader) continue;
+                
+                // Skip rows that look like headers (all caps, no last name, long text)
+                const hasLastName = r[1] && r[1].toString().trim().length > 0;
+                const isAllCaps = firstCell === firstCellUpper && firstCell.length > 10;
+                if (isAllCaps && !hasLastName) continue;
+                
                 const name = \`\${(r[0]||'').trim()} \${(r[1]||'').trim()}\`.trim();
                 if (!name || name === 'NaN NaN') continue;
                 if (NEW_MEMBERS_DEC7.includes(name)) continue;
