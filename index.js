@@ -174,12 +174,23 @@ const HTML_CONTENT = `<!DOCTYPE html>
         
         /* Checklist */
         .checklist { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); }
+        .checklist-title { font-size: 0.75rem; color: #95a5a6; font-weight: 600; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
         .check-item { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; margin-bottom: 5px; }
         .check-done { color: #27ae60; }
         .check-pending { color: #e74c3c; }
         .check-item.clickable { cursor: pointer; padding: 4px 8px; margin: 2px -8px; border-radius: 6px; transition: all 0.2s ease; }
         .check-item.clickable:hover { background: rgba(255,255,255,0.1); transform: translateX(4px); }
         .card-footer-hint { font-size: 0.7rem; color: #7f8c8d; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,0.1); }
+        
+        /* Quarterly Breakdown */
+        .quarterly-breakdown { margin: 12px 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px; }
+        .quarterly-title { font-size: 0.75rem; color: #95a5a6; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; }
+        .quarter-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; margin: 2px 0; border-radius: 4px; font-size: 0.8rem; }
+        .quarter-row.current-quarter { background: rgba(155, 89, 182, 0.2); border: 1px solid rgba(155, 89, 182, 0.4); }
+        .quarter-label { color: #bdc3c7; }
+        .quarter-stats { display: flex; gap: 12px; }
+        .stat-ok { color: #27ae60; font-weight: 600; }
+        .stat-fail { color: #e74c3c; font-weight: 600; }
         
         /* Toast notifications */
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
@@ -710,23 +721,50 @@ const HTML_CONTENT = `<!DOCTYPE html>
         function processGuests(data) {
             guests = [];
             if (!data.length) return;
-            const hdr = data.findIndex(r => r[0] === 'First Name');
-            const map = new Map();
-            for (let i = (hdr >= 0 ? hdr : 1) + 1; i < data.length; i++) {
+            
+            // Track current quarter section as we parse
+            let currentQuarter = null;
+            const guestMap = new Map();
+            
+            // Quarterly meeting and project totals (6 meetings per quarter, projects dynamic)
+            const quarterlyTotals = {
+                q1: { meetings: 6, projects: 0 },
+                q2: { meetings: 6, projects: 0 },
+                q3: { meetings: 6, projects: 0 },
+                q4: { meetings: 6, projects: 0 }
+            };
+            
+            for (let i = 0; i < data.length; i++) {
                 const r = data[i];
-                if (!r[0] || r[0] === 'First Name' || r[0] === 'NaN') continue;
+                if (!r[0]) continue;
                 
-                // Skip section headers (e.g., "CLUB REGISTER – 2nd QUARTER...")
-                // These are identified by: containing header keywords or being all caps with no last name
                 const firstCell = (r[0] || '').toString().trim();
                 const firstCellUpper = firstCell.toUpperCase();
                 
-                // Check for header keywords (case-insensitive)
-                const headerKeywords = ['CLUB', 'REGISTER', 'QUARTER', 'ATTENDANCE', 'MEETING', 'PROJECT'];
+                // Detect quarter section headers
+                if (firstCellUpper.includes('QUARTER') && (firstCellUpper.includes('REGISTER') || firstCellUpper.includes('ATTENDANCE'))) {
+                    // Determine which quarter from the header text
+                    if (firstCellUpper.includes('1ST') || firstCellUpper.includes('1st') || firstCellUpper.includes('FIRST')) {
+                        currentQuarter = 'q1';
+                    } else if (firstCellUpper.includes('2ND') || firstCellUpper.includes('2nd') || firstCellUpper.includes('SECOND')) {
+                        currentQuarter = 'q2';
+                    } else if (firstCellUpper.includes('3RD') || firstCellUpper.includes('3rd') || firstCellUpper.includes('THIRD')) {
+                        currentQuarter = 'q3';
+                    } else if (firstCellUpper.includes('4TH') || firstCellUpper.includes('4th') || firstCellUpper.includes('FOURTH')) {
+                        currentQuarter = 'q4';
+                    }
+                    continue;
+                }
+                
+                // Skip header rows
+                if (firstCell === 'First Name' || firstCell === 'NaN') continue;
+                
+                // Skip other header-like rows
+                const headerKeywords = ['CLUB', 'REGISTER', 'ATTENDANCE', 'TOTAL'];
                 const isHeader = headerKeywords.some(keyword => firstCellUpper.includes(keyword));
                 if (isHeader) continue;
                 
-                // Skip rows that look like headers (all caps, no last name, long text)
+                // Skip rows without proper name structure
                 const hasLastName = r[1] && r[1].toString().trim().length > 0;
                 const isAllCaps = firstCell === firstCellUpper && firstCell.length > 10;
                 if (isAllCaps && !hasLastName) continue;
@@ -734,25 +772,111 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 const name = \`\${(r[0]||'').trim()} \${(r[1]||'').trim()}\`.trim();
                 if (!name || name === 'NaN NaN') continue;
                 if (NEW_MEMBERS_DEC7.includes(name)) continue;
-                let g = map.get(name);
+                
+                // Get or create guest record
+                let g = guestMap.get(name);
                 if (!g) {
-                    g = { fullName: name, firstName: r[0], lastName: r[1], status: '', meetings: 0, projects: 0, info: false, committee: false, ug: false };
-                    map.set(name, g);
+                    g = { 
+                        fullName: name, 
+                        firstName: r[0], 
+                        lastName: r[1], 
+                        status: '',
+                        // Quarterly attendance tracking
+                        quarters: {
+                            q1: { meetings: 0, projects: 0 },
+                            q2: { meetings: 0, projects: 0 },
+                            q3: { meetings: 0, projects: 0 },
+                            q4: { meetings: 0, projects: 0 }
+                        },
+                        // Cumulative totals (for backward compatibility)
+                        meetings: 0, 
+                        projects: 0,
+                        // Static criteria (only set once, not per quarter)
+                        info: false, 
+                        committee: false, 
+                        ug: false
+                    };
+                    guestMap.set(name, g);
                 }
-                for (let j = 3; j <= 8; j++) if (r[j] == 1 || r[j] === 'TRUE' || r[j] === '1') g.meetings++;
-                for (let j = 12; j <= 22; j++) if (r[j] == 1 || r[j] === 'TRUE' || r[j] === '1') g.projects++;
+                
+                // Count meetings for current quarter (columns D-I, indices 3-8)
+                let quarterMeetings = 0;
+                for (let j = 3; j <= 8; j++) {
+                    if (r[j] == 1 || r[j] === 'TRUE' || r[j] === '1' || r[j] === true) {
+                        quarterMeetings++;
+                    }
+                }
+                
+                // Count projects for current quarter (columns M-W, indices 12-22)
+                let quarterProjects = 0;
+                for (let j = 12; j <= 22; j++) {
+                    if (r[j] == 1 || r[j] === 'TRUE' || r[j] === '1' || r[j] === true) {
+                        quarterProjects++;
+                    }
+                }
+                
+                // Store in the current quarter if we know it
+                if (currentQuarter && g.quarters[currentQuarter]) {
+                    g.quarters[currentQuarter].meetings = quarterMeetings;
+                    g.quarters[currentQuarter].projects = quarterProjects;
+                }
+                
+                // Add to cumulative totals
+                g.meetings += quarterMeetings;
+                g.projects += quarterProjects;
+                
+                // Static criteria - set if true in ANY quarter section (they persist)
                 if (r[24] === 'TRUE' || r[24] == 1 || r[24] === '1' || r[24] === true) g.info = true;
                 if (r[25] === 'TRUE' || r[25] == 1 || r[25] === '1' || r[25] === true) g.committee = true;
                 if (r[26] === 'TRUE' || r[26] == 1 || r[26] === '1' || r[26] === true) g.ug = true;
-                if (r[2] && r[2] !== g.status) g.status = r[2];
+                
+                // Status (take the most recent non-empty value)
+                if (r[2] && r[2].toString().trim()) g.status = r[2].toString().trim();
             }
-            map.forEach(g => {
-                const meetTotal = TOTALS.h1.meetings || 1;
-                const projTotal = projectTotals.h1 || 1;
-                g.meetPct = meetTotal > 0 ? (g.meetings / meetTotal) * 100 : 0;
-                g.projPct = projTotal > 0 ? (g.projects / projTotal) * 100 : 0;
+            
+            // Calculate percentages for each guest
+            guestMap.forEach(g => {
+                // Calculate per-quarter percentages
+                ['q1', 'q2', 'q3', 'q4'].forEach(q => {
+                    const meetTotal = quarterlyTotals[q].meetings || 6;
+                    const projTotal = projectTotals[q] || quarterlyTotals[q].projects || 1;
+                    g.quarters[q].meetPct = meetTotal > 0 ? (g.quarters[q].meetings / meetTotal) * 100 : 0;
+                    g.quarters[q].projPct = projTotal > 0 ? (g.quarters[q].projects / projTotal) * 100 : 0;
+                    g.quarters[q].meetTotal = meetTotal;
+                    g.quarters[q].projTotal = projTotal;
+                });
+                
+                // Calculate cumulative percentages (H1 = Q1 + Q2 for backward compatibility)
+                const h1MeetTotal = TOTALS.h1.meetings || 12;
+                const h1ProjTotal = projectTotals.h1 || 1;
+                g.meetPct = h1MeetTotal > 0 ? (g.meetings / h1MeetTotal) * 100 : 0;
+                g.projPct = h1ProjTotal > 0 ? (g.projects / h1ProjTotal) * 100 : 0;
+                
                 guests.push(g);
             });
+        }
+        
+        // Get current Rotaract quarter
+        function getCurrentQuarter() {
+            const month = new Date().getMonth() + 1; // 1-12
+            if (month >= 7 && month <= 9) return 'q1';   // Jul-Sep
+            if (month >= 10 && month <= 12) return 'q2'; // Oct-Dec
+            if (month >= 1 && month <= 3) return 'q3';   // Jan-Mar
+            if (month >= 4 && month <= 6) return 'q4';   // Apr-Jun
+            return 'q1';
+        }
+        
+        // Check if guest is eligible for CURRENT quarter
+        function isGuestEligibleCurrentQuarter(g) {
+            const q = getCurrentQuarter();
+            const qData = g.quarters[q];
+            return (
+                qData.meetPct >= 60 &&
+                qData.projPct >= 50 &&
+                g.info &&
+                g.committee &&
+                g.ug
+            );
         }
         
         function formatDate(dateStr) {
@@ -1143,11 +1267,32 @@ const HTML_CONTENT = `<!DOCTYPE html>
             grid.innerHTML = filtered.map(g => renderGuestCard(g)).join('');
         }
         
+        // Check if guest is eligible - uses CURRENT QUARTER for attendance
         function isEligible(g) {
+            const q = getCurrentQuarter();
+            const qData = g.quarters ? g.quarters[q] : null;
+            
+            if (qData) {
+                // Current quarter eligibility
+                return qData.meetPct >= 60 && qData.projPct >= 50 && g.info && g.committee && g.ug;
+            }
+            // Fallback to cumulative (backward compatibility)
             return g.meetPct >= 60 && g.projPct >= 50 && g.info && g.committee && g.ug;
         }
         
         function renderGuestCard(g) {
+            const q = getCurrentQuarter();
+            const qData = g.quarters ? g.quarters[q] : null;
+            const quarterLabel = q.toUpperCase();
+            
+            // Use current quarter data for eligibility display
+            const meetPctDisplay = qData ? qData.meetPct : g.meetPct;
+            const projPctDisplay = qData ? qData.projPct : g.projPct;
+            const meetingsDisplay = qData ? qData.meetings : g.meetings;
+            const projectsDisplay = qData ? qData.projects : g.projects;
+            const meetTotalDisplay = qData ? qData.meetTotal || 6 : TOTALS.h1.meetings;
+            const projTotalDisplay = qData ? qData.projTotal || projectTotals[q] || 0 : projectTotals.h1 || 0;
+            
             const eligible = isEligible(g);
             const statusClass = eligible ? 'eligible' : g.ug ? 'guest' : 'notug';
             const statusText = eligible ? '✅ Eligible' : !g.info ? '❓ Info Session Needed' : !g.ug ? '❌ Not UG' : '⏳ In Progress';
@@ -1156,32 +1301,67 @@ const HTML_CONTENT = `<!DOCTYPE html>
             const interactive = API_CONFIG.enabled;
             const escapedName = g.fullName.replace(/'/g, "\\\\'");
             
+            // Build quarterly breakdown section
+            let quarterlySection = '';
+            if (g.quarters) {
+                const quarterNames = { q1: 'Q1 (Jul-Sep)', q2: 'Q2 (Oct-Dec)', q3: 'Q3 (Jan-Mar)', q4: 'Q4 (Apr-Jun)' };
+                const activeQuarters = ['q1', 'q2', 'q3', 'q4'].filter(qKey => {
+                    const qd = g.quarters[qKey];
+                    return qd && (qd.meetings > 0 || qd.projects > 0);
+                });
+                
+                if (activeQuarters.length > 0) {
+                    quarterlySection = '<div class="quarterly-breakdown"><div class="quarterly-title">Quarterly Breakdown:</div>';
+                    activeQuarters.forEach(qKey => {
+                        const qd = g.quarters[qKey];
+                        const isCurrent = qKey === q;
+                        const qMeetPct = qd.meetPct || 0;
+                        const qProjPct = qd.projPct || 0;
+                        const meetOk = qMeetPct >= 60;
+                        const projOk = qProjPct >= 50;
+                        quarterlySection += \`
+                            <div class="quarter-row \${isCurrent ? 'current-quarter' : ''}">
+                                <span class="quarter-label">\${quarterNames[qKey]}\${isCurrent ? ' ★' : ''}</span>
+                                <span class="quarter-stats">
+                                    <span class="\${meetOk ? 'stat-ok' : 'stat-fail'}">M: \${qd.meetings}/\${qd.meetTotal || 6}</span>
+                                    <span class="\${projOk ? 'stat-ok' : 'stat-fail'}">P: \${qd.projects}/\${qd.projTotal || 0}</span>
+                                </span>
+                            </div>
+                        \`;
+                    });
+                    quarterlySection += '</div>';
+                }
+            }
+            
             return \`
                 <div class="member-card \${statusClass}">
                     <div class="card-header">
                         <div>
                             <div class="member-name">\${g.fullName}</div>
-                            <div class="member-tag">Guest</div>
+                            <div class="member-tag">Guest · \${quarterLabel} Status</div>
                         </div>
                         <span class="status-badge status-\${statusClass.replace('guest', 'infosession')}">\${statusText}</span>
                     </div>
                     <div class="progress-row">
-                        <span class="progress-label">Meetings</span>
+                        <span class="progress-label">\${quarterLabel} Meetings</span>
                         <div class="progress-bar">
-                            <div class="progress-fill meetings" style="width: \${Math.min(g.meetPct, 100)}%"></div>
+                            <div class="progress-fill meetings" style="width: \${Math.min(meetPctDisplay, 100)}%"></div>
                         </div>
-                        <span class="progress-value">\${g.meetings}/\${TOTALS.h1.meetings} (\${Math.round(g.meetPct)}%)</span>
+                        <span class="progress-value">\${meetingsDisplay}/\${meetTotalDisplay} (\${Math.round(meetPctDisplay)}%)</span>
                     </div>
                     <div class="progress-row">
-                        <span class="progress-label">Projects</span>
+                        <span class="progress-label">\${quarterLabel} Projects</span>
                         <div class="progress-bar">
-                            <div class="progress-fill projects" style="width: \${Math.min(g.projPct, 100)}%"></div>
+                            <div class="progress-fill projects" style="width: \${Math.min(projPctDisplay, 100)}%"></div>
                         </div>
-                        <span class="progress-value">\${g.projects}/\${projectTotals.h1 || 0} (\${Math.round(g.projPct)}%)</span>
+                        <span class="progress-value">\${projectsDisplay}/\${projTotalDisplay} (\${Math.round(projPctDisplay)}%)</span>
                     </div>
+                    \${quarterlySection}
                     <div class="checklist">
-                        <div class="check-item \${g.meetPct >= 60 ? 'check-done' : 'check-pending'}">\${g.meetPct >= 60 ? '✅' : '❌'} 60% Meetings (\${Math.round(g.meetPct)}%)</div>
-                        <div class="check-item \${g.projPct >= 50 ? 'check-done' : 'check-pending'}">\${g.projPct >= 50 ? '✅' : '❌'} 50% Projects (\${Math.round(g.projPct)}%)</div>
+                        <div class="checklist-title">Current Quarter Requirements:</div>
+                        <div class="check-item \${meetPctDisplay >= 60 ? 'check-done' : 'check-pending'}">\${meetPctDisplay >= 60 ? '✅' : '❌'} 60% Meetings (\${Math.round(meetPctDisplay)}%)</div>
+                        <div class="check-item \${projPctDisplay >= 50 ? 'check-done' : 'check-pending'}">\${projPctDisplay >= 50 ? '✅' : '❌'} 50% Projects (\${Math.round(projPctDisplay)}%)</div>
+                        <div class="checklist-title" style="margin-top:8px;">Static Requirements:</div>
                         <div class="check-item \${g.info ? 'check-done' : 'check-pending'} \${interactive ? 'clickable' : ''}" 
                              \${interactive ? \`onclick="toggleGuestCheckbox('\${escapedName}', 'infoSession', \${!g.info})"\` : ''}
                              \${interactive ? 'title="Click to toggle"' : ''}>
@@ -1198,7 +1378,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                             \${g.ug ? '✅' : '❌'} UG Student/Graduate
                         </div>
                     </div>
-                    \${interactive ? '<div class="card-footer-hint">Click checkboxes to update</div>' : ''}
+                    \${interactive ? '<div class="card-footer-hint">Click static checkboxes to update</div>' : ''}
                 </div>
             \`;
         }
