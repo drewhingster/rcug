@@ -112,6 +112,12 @@ const HTML_CONTENT = `<!DOCTYPE html>
         .check-item { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; margin-bottom: 5px; }
         .check-done { color: #27ae60; }
         .check-pending { color: #e74c3c; }
+        .check-item.clickable { cursor: pointer; padding: 4px 8px; margin: 2px -8px; border-radius: 6px; transition: all 0.2s ease; }
+        .check-item.clickable:hover { background: rgba(255,255,255,0.1); transform: translateX(4px); }
+        .card-footer-hint { font-size: 0.7rem; color: #7f8c8d; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,0.1); }
+        
+        /* Toast notifications */
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         
         /* Board Indicator */
         .board-indicator { margin-top: 10px; padding: 8px 12px; background: rgba(155, 89, 182, 0.15); border-radius: 8px; border-left: 3px solid #9b59b6; }
@@ -391,6 +397,100 @@ const HTML_CONTENT = `<!DOCTYPE html>
         };
         const NEW_MEMBERS_DEC7 = ['Brittany Ross', 'Patrick Bacchus', 'Randolph Benn'];
         const BOARD_MEMBERS = ['Adanna Edwards', 'Andrew Hing', 'Christine Samuels', 'Darin Hall', 'Ganesh Anand', 'Jemima Stephenson', 'Kadeem Bowen', 'Nandita Singh', 'Omari London', 'Ruth Manbodh', 'Vishal Roopnarine', 'Yushina Ramlall'];
+        
+        // ============================================
+        // GOOGLE APPS SCRIPT API CONFIGURATION
+        // ============================================
+        const API_CONFIG = {
+            // IMPORTANT: Replace this URL with your deployed Google Apps Script Web App URL
+            // To get this URL: Google Sheets → Extensions → Apps Script → Deploy → Web app
+            endpoint: 'https://script.google.com/macros/s/AKfycbx0KTSqtRsc62Z5udqebdkfs0rMl1Bjqv9D7IsZMmty-RM2QBVixH3y2D1eHkvLXxRS/exec', // e.g., 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec'
+            apiKey: null, // Optional: Set if you configured API_KEY in Apps Script
+            enabled: true // Set to true once you've deployed the Apps Script
+        };
+        
+        // API Helper Functions
+        async function apiCall(action, data) {
+            if (!API_CONFIG.enabled || !API_CONFIG.endpoint) {
+                console.warn('API not configured. Enable write-back by setting API_CONFIG.endpoint');
+                return { success: false, error: 'API not configured' };
+            }
+            
+            try {
+                const response = await fetch(API_CONFIG.endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: action,
+                        apiKey: API_CONFIG.apiKey,
+                        ...data
+                    })
+                });
+                
+                const result = await response.json();
+                return result;
+            } catch (error) {
+                console.error('API call failed:', error);
+                return { success: false, error: error.message };
+            }
+        }
+        
+        // Update guest checkbox (Info Session, Committee Meeting, UG Status)
+        async function updateGuestCheckbox(guestName, field, value) {
+            const result = await apiCall('updateGuestCheckbox', { guestName, field, value });
+            if (result.success) {
+                // Update local data to reflect change
+                const guest = guests.find(g => g.fullName === guestName);
+                if (guest) {
+                    if (field === 'infoSession') guest.info = value;
+                    else if (field === 'committeeMeeting') guest.committee = value;
+                    else if (field === 'ugStatus') guest.ug = value;
+                }
+                showToast('Updated ' + field + ' for ' + guestName, 'success');
+            } else {
+                showToast('Failed to update: ' + (result.error || 'Unknown error'), 'error');
+            }
+            return result;
+        }
+        
+        // Update guest status
+        async function updateGuestStatus(guestName, newStatus) {
+            const result = await apiCall('updateGuestStatus', { guestName, newStatus });
+            if (result.success) {
+                const guest = guests.find(g => g.fullName === guestName);
+                if (guest) guest.status = newStatus;
+                showToast('Status updated for ' + guestName, 'success');
+            } else {
+                showToast('Failed to update status: ' + (result.error || 'Unknown error'), 'error');
+            }
+            return result;
+        }
+        
+        // Update member status
+        async function updateMemberStatus(memberName, newStatus) {
+            const result = await apiCall('updateMemberStatus', { memberName, newStatus });
+            if (result.success) {
+                const member = members.find(m => m.fullName === memberName);
+                if (member) member.status = newStatus;
+                showToast('Status updated for ' + memberName, 'success');
+                render();
+            } else {
+                showToast('Failed to update status: ' + (result.error || 'Unknown error'), 'error');
+            }
+            return result;
+        }
+        
+        // Toast notification system
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = 'toast toast-' + type;
+            toast.textContent = message;
+            toast.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:12px 24px;border-radius:8px;color:white;font-weight:500;z-index:9999;animation:slideIn 0.3s ease;';
+            toast.style.backgroundColor = type === 'success' ? '#27ae60' : type === 'error' ? '#e74c3c' : '#3498db';
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+        // ============================================
         
         let members = [], guests = [], allAttendance = [], boardAttendance = {}, currentTab = 'members', currentPeriod = 'h1';
         let projectTotals = { q1: 0, q2: 0, q3: 0, q4: 0, h1: 0, h2: 0, annual: 0, elections: 0 };
@@ -967,6 +1067,10 @@ const HTML_CONTENT = `<!DOCTYPE html>
             const statusClass = eligible ? 'eligible' : g.ug ? 'guest' : 'notug';
             const statusText = eligible ? '✅ Eligible' : !g.info ? '❓ Info Session Needed' : !g.ug ? '❌ Not UG' : '⏳ In Progress';
             
+            // Only show interactive checkboxes if API is configured
+            const interactive = API_CONFIG.enabled;
+            const escapedName = g.fullName.replace(/'/g, "\\\\'");
+            
             return \`
                 <div class="member-card \${statusClass}">
                     <div class="card-header">
@@ -993,12 +1097,33 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     <div class="checklist">
                         <div class="check-item \${g.meetPct >= 60 ? 'check-done' : 'check-pending'}">\${g.meetPct >= 60 ? '✅' : '❌'} 60% Meetings (\${Math.round(g.meetPct)}%)</div>
                         <div class="check-item \${g.projPct >= 50 ? 'check-done' : 'check-pending'}">\${g.projPct >= 50 ? '✅' : '❌'} 50% Projects (\${Math.round(g.projPct)}%)</div>
-                        <div class="check-item \${g.info ? 'check-done' : 'check-pending'}">\${g.info ? '✅' : '❌'} Info Session</div>
-                        <div class="check-item \${g.committee ? 'check-done' : 'check-pending'}">\${g.committee ? '✅' : '❌'} Committee Meeting</div>
-                        <div class="check-item \${g.ug ? 'check-done' : 'check-pending'}">\${g.ug ? '✅' : '❌'} UG Student/Graduate</div>
+                        <div class="check-item \${g.info ? 'check-done' : 'check-pending'} \${interactive ? 'clickable' : ''}" 
+                             \${interactive ? \`onclick="toggleGuestCheckbox('\${escapedName}', 'infoSession', \${!g.info})"\` : ''}
+                             \${interactive ? 'title="Click to toggle"' : ''}>
+                            \${g.info ? '✅' : '❌'} Info Session
+                        </div>
+                        <div class="check-item \${g.committee ? 'check-done' : 'check-pending'} \${interactive ? 'clickable' : ''}"
+                             \${interactive ? \`onclick="toggleGuestCheckbox('\${escapedName}', 'committeeMeeting', \${!g.committee})"\` : ''}
+                             \${interactive ? 'title="Click to toggle"' : ''}>
+                            \${g.committee ? '✅' : '❌'} Committee Meeting
+                        </div>
+                        <div class="check-item \${g.ug ? 'check-done' : 'check-pending'} \${interactive ? 'clickable' : ''}"
+                             \${interactive ? \`onclick="toggleGuestCheckbox('\${escapedName}', 'ugStatus', \${!g.ug})"\` : ''}
+                             \${interactive ? 'title="Click to toggle"' : ''}>
+                            \${g.ug ? '✅' : '❌'} UG Student/Graduate
+                        </div>
                     </div>
+                    \${interactive ? '<div class="card-footer-hint">Click checkboxes to update</div>' : ''}
                 </div>
             \`;
+        }
+        
+        // Global function for checkbox toggle (called from onclick)
+        async function toggleGuestCheckbox(guestName, field, newValue) {
+            const result = await updateGuestCheckbox(guestName, field, newValue);
+            if (result.success) {
+                renderGuests(); // Re-render to show updated state
+            }
         }
         
         // Modal Functions
