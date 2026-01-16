@@ -404,7 +404,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
         const API_CONFIG = {
             // IMPORTANT: Replace this URL with your deployed Google Apps Script Web App URL
             // To get this URL: Google Sheets → Extensions → Apps Script → Deploy → Web app
-            endpoint: 'https://script.google.com/macros/s/AKfycbx0KTSqtRsc62Z5udqebdkfs0rMl1Bjqv9D7IsZMmty-RM2QBVixH3y2D1eHkvLXxRS/exec', // e.g., 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec'
+            endpoint: 'https://script.google.com/macros/s/AKfycbx0KTSqtRsc62Z5udqebdkfs0rMl1Bjqv9D7IsZMmty-RM2QBVixH3y2D1eHkvLXxRS/exec',
             apiKey: null, // Optional: Set if you configured API_KEY in Apps Script
             enabled: true // Set to true once you've deployed the Apps Script
         };
@@ -416,10 +416,19 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 return { success: false, error: 'API not configured' };
             }
             
+            console.log('API Call:', action, data); // Debug logging
+            
             try {
+                // Google Apps Script requires special handling:
+                // 1. Use 'text/plain' to avoid CORS preflight
+                // 2. Use redirect: 'follow' to handle Apps Script redirects
                 const response = await fetch(API_CONFIG.endpoint, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    mode: 'cors',
+                    redirect: 'follow',
+                    headers: { 
+                        'Content-Type': 'text/plain;charset=utf-8'
+                    },
                     body: JSON.stringify({
                         action: action,
                         apiKey: API_CONFIG.apiKey,
@@ -427,10 +436,22 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     })
                 });
                 
-                const result = await response.json();
-                return result;
+                console.log('API Response status:', response.status); // Debug logging
+                
+                const text = await response.text();
+                console.log('API Response text:', text); // Debug logging
+                
+                try {
+                    const result = JSON.parse(text);
+                    return result;
+                } catch (parseError) {
+                    console.error('Failed to parse response:', text);
+                    return { success: false, error: 'Invalid response from server' };
+                }
             } catch (error) {
                 console.error('API call failed:', error);
+                console.error('Error name:', error.name);
+                console.error('Error message:', error.message);
                 return { success: false, error: error.message };
             }
         }
