@@ -1,5 +1,13 @@
 export default {
   async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    
+    // Handle API proxy requests to bypass CORS
+    if (url.pathname === '/api/proxy') {
+      return handleApiProxy(request);
+    }
+    
+    // Serve the dashboard HTML
     return new Response(HTML_CONTENT, {
       headers: {
         'content-type': 'text/html;charset=UTF-8',
@@ -9,6 +17,63 @@ export default {
     });
   },
 };
+
+// Proxy handler - forwards requests to Google Apps Script
+async function handleApiProxy(request) {
+  // Handle CORS preflight
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Max-Age': '86400',
+      }
+    });
+  }
+  
+  if (request.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+    });
+  }
+  
+  try {
+    const body = await request.json();
+    const targetUrl = body.targetUrl;
+    
+    if (!targetUrl || !targetUrl.startsWith('https://script.google.com/')) {
+      return new Response(JSON.stringify({ error: 'Invalid target URL' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      });
+    }
+    
+    // Forward the request to Google Apps Script
+    const response = await fetch(targetUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body.payload),
+      redirect: 'follow'
+    });
+    
+    const responseText = await response.text();
+    
+    return new Response(responseText, {
+      status: response.status,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+    });
+  }
+}
 
 const HTML_CONTENT = `<!DOCTYPE html>
 <html lang="en">
@@ -409,7 +474,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             enabled: true // Set to true once you've deployed the Apps Script
         };
         
-        // API Helper Functions
+        // API Helper Functions - Uses proxy to bypass CORS
         async function apiCall(action, data) {
             if (!API_CONFIG.enabled || !API_CONFIG.endpoint) {
                 console.warn('API not configured. Enable write-back by setting API_CONFIG.endpoint');
@@ -419,20 +484,19 @@ const HTML_CONTENT = `<!DOCTYPE html>
             console.log('API Call:', action, data); // Debug logging
             
             try {
-                // Google Apps Script requires special handling:
-                // 1. Use 'text/plain' to avoid CORS preflight
-                // 2. Use redirect: 'follow' to handle Apps Script redirects
-                const response = await fetch(API_CONFIG.endpoint, {
+                // Route through our Cloudflare Worker proxy to bypass CORS
+                const response = await fetch('/api/proxy', {
                     method: 'POST',
-                    mode: 'cors',
-                    redirect: 'follow',
                     headers: { 
-                        'Content-Type': 'text/plain;charset=utf-8'
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        action: action,
-                        apiKey: API_CONFIG.apiKey,
-                        ...data
+                        targetUrl: API_CONFIG.endpoint,
+                        payload: {
+                            action: action,
+                            apiKey: API_CONFIG.apiKey,
+                            ...data
+                        }
                     })
                 });
                 
