@@ -1,13 +1,5 @@
 export default {
   async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-    
-    // Handle API proxy requests to bypass CORS
-    if (url.pathname === '/api/proxy') {
-      return handleApiProxy(request);
-    }
-    
-    // Serve the dashboard HTML
     return new Response(HTML_CONTENT, {
       headers: {
         'content-type': 'text/html;charset=UTF-8',
@@ -17,63 +9,6 @@ export default {
     });
   },
 };
-
-// Proxy handler - forwards requests to Google Apps Script
-async function handleApiProxy(request) {
-  // Handle CORS preflight
-  if (request.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Max-Age': '86400',
-      }
-    });
-  }
-  
-  if (request.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-    });
-  }
-  
-  try {
-    const body = await request.json();
-    const targetUrl = body.targetUrl;
-    
-    if (!targetUrl || !targetUrl.startsWith('https://script.google.com/')) {
-      return new Response(JSON.stringify({ error: 'Invalid target URL' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-      });
-    }
-    
-    // Forward the request to Google Apps Script
-    const response = await fetch(targetUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body.payload),
-      redirect: 'follow'
-    });
-    
-    const responseText = await response.text();
-    
-    return new Response(responseText, {
-      status: response.status,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
-    });
-  }
-}
 
 const HTML_CONTENT = `<!DOCTYPE html>
 <html lang="en">
@@ -174,26 +109,9 @@ const HTML_CONTENT = `<!DOCTYPE html>
         
         /* Checklist */
         .checklist { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); }
-        .checklist-title { font-size: 0.75rem; color: #95a5a6; font-weight: 600; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
         .check-item { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; margin-bottom: 5px; }
         .check-done { color: #27ae60; }
         .check-pending { color: #e74c3c; }
-        .check-item.clickable { cursor: pointer; padding: 4px 8px; margin: 2px -8px; border-radius: 6px; transition: all 0.2s ease; }
-        .check-item.clickable:hover { background: rgba(255,255,255,0.1); transform: translateX(4px); }
-        .card-footer-hint { font-size: 0.7rem; color: #7f8c8d; text-align: center; margin-top: 10px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,0.1); }
-        
-        /* Quarterly Breakdown */
-        .quarterly-breakdown { margin: 12px 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px; }
-        .quarterly-title { font-size: 0.75rem; color: #95a5a6; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; }
-        .quarter-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; margin: 2px 0; border-radius: 4px; font-size: 0.8rem; }
-        .quarter-row.current-quarter { background: rgba(155, 89, 182, 0.2); border: 1px solid rgba(155, 89, 182, 0.4); }
-        .quarter-label { color: #bdc3c7; }
-        .quarter-stats { display: flex; gap: 12px; }
-        .stat-ok { color: #27ae60; font-weight: 600; }
-        .stat-fail { color: #e74c3c; font-weight: 600; }
-        
-        /* Toast notifications */
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         
         /* Board Indicator */
         .board-indicator { margin-top: 10px; padding: 8px 12px; background: rgba(155, 89, 182, 0.15); border-radius: 8px; border-left: 3px solid #9b59b6; }
@@ -256,13 +174,13 @@ const HTML_CONTENT = `<!DOCTYPE html>
 <body>
     <div class="container">
         <header>
-            <h1>⭐ RCUG Member Progress Dashboard</h1>
+            <h1>â­ RCUG Member Progress Dashboard</h1>
             <p class="subtitle">Rotaract Club of University of Guyana | Track Member & Guest Progress</p>
             <p id="lastUpdated" class="subtitle" style="margin-top:5px;"></p>
         </header>
         
         <div id="loadingMessage" class="loading">
-            <div>⏳ Loading dashboard data...</div>
+            <div>â³ Loading dashboard data...</div>
             <div style="font-size:0.8rem; margin-top:10px; color:#bdc3c7;">Fetching from Google Sheets</div>
         </div>
         
@@ -271,16 +189,16 @@ const HTML_CONTENT = `<!DOCTYPE html>
         <div id="mainContent" style="display:none;">
             <!-- Tabs -->
             <div class="tabs">
-                <div class="tab members active" onclick="switchTab('members')">👥 Members</div>
-                <div class="tab guests" onclick="switchTab('guests')">🎯 Guests</div>
-                <div class="tab reports" onclick="switchTab('reports')">📊 Reports & Exports</div>
+                <div class="tab members active" onclick="switchTab('members')">ðŸ‘¥ Members</div>
+                <div class="tab guests" onclick="switchTab('guests')">ðŸŽ¯ Guests</div>
+                <div class="tab reports" onclick="switchTab('reports')">ðŸ“Š Reports & Exports</div>
             </div>
             
             <!-- Members Section -->
             <div id="membersSection">
                 <div class="controls">
                     <div class="control-row">
-                        <input type="text" id="searchInput" class="search-input" placeholder="🔍 Search members...">
+                        <input type="text" id="searchInput" class="search-input" placeholder="ðŸ” Search members...">
                         <select id="statusFilter" class="filter-select">
                             <option value="all">All Statuses</option>
                             <option value="good">Good Standing</option>
@@ -298,7 +216,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                             <option value="annual">Annual (Full Year)</option>
                             <option value="elections">Elections (Q1+Q2+Jan)</option>
                         </select>
-                        <button class="refresh-btn" onclick="loadAllData()">🔄 Refresh</button>
+                        <button class="refresh-btn" onclick="loadAllData()">ðŸ”„ Refresh</button>
                     </div>
                 </div>
                 
@@ -324,14 +242,14 @@ const HTML_CONTENT = `<!DOCTYPE html>
             <div id="guestsSection" style="display:none;">
                 <div class="controls">
                     <div class="control-row">
-                        <input type="text" id="guestSearchInput" class="search-input" placeholder="🔍 Search guests...">
+                        <input type="text" id="guestSearchInput" class="search-input" placeholder="ðŸ” Search guests...">
                         <select id="guestStatusFilter" class="filter-select">
                             <option value="all">All Guests</option>
                             <option value="eligible">Eligible for Membership</option>
                             <option value="notug">Not UG</option>
                             <option value="needsinfo">Needs Info Session</option>
                         </select>
-                        <button class="refresh-btn" onclick="loadAllData()">🔄 Refresh</button>
+                        <button class="refresh-btn" onclick="loadAllData()">ðŸ”„ Refresh</button>
                     </div>
                 </div>
                 
@@ -353,7 +271,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             <div id="reportsSection" class="report-section">
                 <!-- Birthday Report -->
                 <div class="report-card">
-                    <h2 class="report-title">🎂 Birthday Report</h2>
+                    <h2 class="report-title">ðŸŽ‚ Birthday Report</h2>
                     <p class="report-description">Generate monthly birthday lists for Public Image posts</p>
                     <div class="report-controls">
                         <select id="birthdayMonthFilter" class="filter-select">
@@ -371,14 +289,14 @@ const HTML_CONTENT = `<!DOCTYPE html>
                             <option value="11">November</option>
                             <option value="12">December</option>
                         </select>
-                        <button class="export-btn" onclick="generateBirthdayPDF()" id="birthdayExportBtn" disabled>✨ Export PDF</button>
+                        <button class="export-btn" onclick="generateBirthdayPDF()" id="birthdayExportBtn" disabled>âœ¨ Export PDF</button>
                     </div>
                     <div id="birthdayReportTable" class="report-table"></div>
                 </div>
                 
                 <!-- Anniversary Report -->
                 <div class="report-card">
-                    <h2 class="report-title">🎉 Induction Anniversary Report</h2>
+                    <h2 class="report-title">ðŸŽ‰ Induction Anniversary Report</h2>
                     <p class="report-description">Generate monthly anniversary lists for Public Image posts</p>
                     <div class="report-controls">
                         <select id="anniversaryMonthFilter" class="filter-select">
@@ -396,14 +314,14 @@ const HTML_CONTENT = `<!DOCTYPE html>
                             <option value="11">November</option>
                             <option value="12">December</option>
                         </select>
-                        <button class="export-btn" onclick="generateAnniversaryPDF()" id="anniversaryExportBtn" disabled>✨ Export PDF</button>
+                        <button class="export-btn" onclick="generateAnniversaryPDF()" id="anniversaryExportBtn" disabled>âœ¨ Export PDF</button>
                     </div>
                     <div id="anniversaryReportTable" class="report-table"></div>
                 </div>
                 
                 <!-- Quarterly Attendance Report -->
                 <div class="report-card">
-                    <h2 class="report-title">⚠️ Quarterly Attendance Warning Report</h2>
+                    <h2 class="report-title">âš ï¸ Quarterly Attendance Warning Report</h2>
                     <p class="report-description">Members below 60% attendance threshold (Bylaws Section 9)</p>
                     <div class="report-controls">
                         <select id="quarterFilter" class="filter-select">
@@ -415,32 +333,21 @@ const HTML_CONTENT = `<!DOCTYPE html>
                             <option value="h2">Half 2 (Q3 + Q4)</option>
                             <option value="annual">Annual (Full Year)</option>
                         </select>
-                        <button class="export-btn" onclick="generateAttendanceWarningPDF()">✨ Export PDF</button>
-                        <button class="export-btn" onclick="generateAttendanceWarningCSV()">📊 Export CSV</button>
+                        <button class="export-btn" onclick="generateAttendanceWarningPDF()">âœ¨ Export PDF</button>
+                        <button class="export-btn" onclick="generateAttendanceWarningCSV()">ðŸ“Š Export CSV</button>
                     </div>
                     <div id="attendanceWarningTable" class="report-table"></div>
                 </div>
                 
                 <!-- Guest Eligibility Report -->
                 <div class="report-card">
-                    <h2 class="report-title">⭐ Guest Eligibility Report</h2>
+                    <h2 class="report-title">â­ Guest Eligibility Report</h2>
                     <p class="report-description">Guests who have met membership requirements and are ready for proposal</p>
                     <div class="report-controls">
-                        <button class="export-btn" onclick="generateGuestEligibilityPDF()">✨ Export PDF</button>
-                        <button class="export-btn" onclick="generateGuestEligibilityCSV()">📊 Export CSV</button>
+                        <button class="export-btn" onclick="generateGuestEligibilityPDF()">âœ¨ Export PDF</button>
+                        <button class="export-btn" onclick="generateGuestEligibilityCSV()">ðŸ“Š Export CSV</button>
                     </div>
                     <div id="guestEligibilityTable" class="report-table"></div>
-                </div>
-                
-                <!-- Elections Eligibility Report -->
-                <div class="report-card">
-                    <h2 class="report-title">🗳️ Elections Eligibility Report</h2>
-                    <p class="report-description">Members eligible to vote and run in elections (60% attendance Q1+Q2+Jan, Bylaws Article 7)</p>
-                    <div class="report-controls">
-                        <button class="export-btn" onclick="generateElectionsEligibilityPDF()">✨ Export PDF</button>
-                        <button class="export-btn" onclick="generateElectionsEligibilityCSV()">📊 Export CSV</button>
-                    </div>
-                    <div id="electionsEligibilityTable" class="report-table"></div>
                 </div>
             </div>
         </div>
@@ -474,120 +381,6 @@ const HTML_CONTENT = `<!DOCTYPE html>
         const NEW_MEMBERS_DEC7 = ['Brittany Ross', 'Patrick Bacchus', 'Randolph Benn'];
         const BOARD_MEMBERS = ['Adanna Edwards', 'Andrew Hing', 'Christine Samuels', 'Darin Hall', 'Ganesh Anand', 'Jemima Stephenson', 'Kadeem Bowen', 'Nandita Singh', 'Omari London', 'Ruth Manbodh', 'Vishal Roopnarine', 'Yushina Ramlall'];
         
-        // ============================================
-        // GOOGLE APPS SCRIPT API CONFIGURATION
-        // ============================================
-        const API_CONFIG = {
-            // IMPORTANT: Replace this URL with your deployed Google Apps Script Web App URL
-            // To get this URL: Google Sheets → Extensions → Apps Script → Deploy → Web app
-            endpoint: 'https://script.google.com/macros/s/AKfycbx0KTSqtRsc62Z5udqebdkfs0rMl1Bjqv9D7IsZMmty-RM2QBVixH3y2D1eHkvLXxRS/exec',
-            apiKey: null, // Optional: Set if you configured API_KEY in Apps Script
-            enabled: true // Set to true once you've deployed the Apps Script
-        };
-        
-        // API Helper Functions - Uses proxy to bypass CORS
-        async function apiCall(action, data) {
-            if (!API_CONFIG.enabled || !API_CONFIG.endpoint) {
-                console.warn('API not configured. Enable write-back by setting API_CONFIG.endpoint');
-                return { success: false, error: 'API not configured' };
-            }
-            
-            console.log('API Call:', action, data); // Debug logging
-            
-            try {
-                // Route through our Cloudflare Worker proxy to bypass CORS
-                const response = await fetch('/api/proxy', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        targetUrl: API_CONFIG.endpoint,
-                        payload: {
-                            action: action,
-                            apiKey: API_CONFIG.apiKey,
-                            ...data
-                        }
-                    })
-                });
-                
-                console.log('API Response status:', response.status); // Debug logging
-                
-                const text = await response.text();
-                console.log('API Response text:', text); // Debug logging
-                
-                try {
-                    const result = JSON.parse(text);
-                    return result;
-                } catch (parseError) {
-                    console.error('Failed to parse response:', text);
-                    return { success: false, error: 'Invalid response from server' };
-                }
-            } catch (error) {
-                console.error('API call failed:', error);
-                console.error('Error name:', error.name);
-                console.error('Error message:', error.message);
-                return { success: false, error: error.message };
-            }
-        }
-        
-        // Update guest checkbox (Info Session, Committee Meeting, UG Status)
-        async function updateGuestCheckbox(guestName, field, value) {
-            const result = await apiCall('updateGuestCheckbox', { guestName, field, value });
-            if (result.success) {
-                // Update local data to reflect change
-                const guest = guests.find(g => g.fullName === guestName);
-                if (guest) {
-                    if (field === 'infoSession') guest.info = value;
-                    else if (field === 'committeeMeeting') guest.committee = value;
-                    else if (field === 'ugStatus') guest.ug = value;
-                }
-                showToast('Updated ' + field + ' for ' + guestName, 'success');
-            } else {
-                showToast('Failed to update: ' + (result.error || 'Unknown error'), 'error');
-            }
-            return result;
-        }
-        
-        // Update guest status
-        async function updateGuestStatus(guestName, newStatus) {
-            const result = await apiCall('updateGuestStatus', { guestName, newStatus });
-            if (result.success) {
-                const guest = guests.find(g => g.fullName === guestName);
-                if (guest) guest.status = newStatus;
-                showToast('Status updated for ' + guestName, 'success');
-            } else {
-                showToast('Failed to update status: ' + (result.error || 'Unknown error'), 'error');
-            }
-            return result;
-        }
-        
-        // Update member status
-        async function updateMemberStatus(memberName, newStatus) {
-            const result = await apiCall('updateMemberStatus', { memberName, newStatus });
-            if (result.success) {
-                const member = members.find(m => m.fullName === memberName);
-                if (member) member.status = newStatus;
-                showToast('Status updated for ' + memberName, 'success');
-                render();
-            } else {
-                showToast('Failed to update status: ' + (result.error || 'Unknown error'), 'error');
-            }
-            return result;
-        }
-        
-        // Toast notification system
-        function showToast(message, type = 'info') {
-            const toast = document.createElement('div');
-            toast.className = 'toast toast-' + type;
-            toast.textContent = message;
-            toast.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:12px 24px;border-radius:8px;color:white;font-weight:500;z-index:9999;animation:slideIn 0.3s ease;';
-            toast.style.backgroundColor = type === 'success' ? '#27ae60' : type === 'error' ? '#e74c3c' : '#3498db';
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
-        }
-        // ============================================
-        
         let members = [], guests = [], allAttendance = [], boardAttendance = {}, currentTab = 'members', currentPeriod = 'h1';
         let projectTotals = { q1: 0, q2: 0, q3: 0, q4: 0, h1: 0, h2: 0, annual: 0, elections: 0 };
         let meetingTotals = { q1: 0, q2: 0, q3: 0, q4: 0, h1: 0, h2: 0, annual: 0, elections: 0 };
@@ -597,7 +390,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             const periods = ['q1', 'q2', 'q3', 'q4', 'h1', 'h2', 'annual', 'elections'];
             periods.forEach(p => {
                 const meetingDates = allAttendance.filter(a => {
-                    const isRegularMeeting = a.type === 'Business Meeting' || a.type === 'Fellowship Meeting';
+                    const isRegularMeeting = a.type === 'Business Meeting' || a.type === 'Fellowship Meeting' || a.type === 'Committee Meeting';
                     if (!isRegularMeeting) return false;
                     // Elections = Q1 + Q2 + January meetings
                     if (p === 'elections') return a.quarter === 'Q1' || a.quarter === 'Q2' || a.month === 1;
@@ -672,7 +465,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 console.error('Load error:', error);
                 document.getElementById('loadingMessage').style.display = 'none';
                 document.getElementById('errorMessage').style.display = 'block';
-                document.getElementById('errorMessage').innerHTML = \`<h3>⚠️ Error Loading Data</h3><p>\${error.message}</p><p style="margin-top:15px;">Make sure your Google Sheet sharing is set to "Anyone with the link"</p><p><a href="https://docs.google.com/spreadsheets/d/\${SHEET_ID}/edit" target="_blank">Open Google Sheet</a></p>\`;
+                document.getElementById('errorMessage').innerHTML = \`<h3>âš ï¸ Error Loading Data</h3><p>\${error.message}</p><p style="margin-top:15px;">Make sure your Google Sheet sharing is set to "Anyone with the link"</p><p><a href="https://docs.google.com/spreadsheets/d/\${SHEET_ID}/edit" target="_blank">Open Google Sheet</a></p>\`;
             }
         }
         
@@ -704,9 +497,8 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 const r = data[i];
                 if (r[0] && r[0].includes('QUARTER BOARD MEETING')) { currentQuarter++; continue; }
                 if (r[0] === 'First Name' || !r[0] || r[0] === 'Total') continue;
-                const rawName = \`\${(r[0] || '').trim()} \${(r[1] || '').trim()}\`.trim();
-                if (!rawName || rawName === ' ') continue;
-                const name = normalizeName(rawName);
+                const name = \`\${(r[0] || '').trim()} \${(r[1] || '').trim()}\`.trim();
+                if (!name || name === ' ') continue;
                 if (!boardAttendance[name]) boardAttendance[name] = { total: 0, q1: 0, q2: 0, q3: 0, q4: 0 };
                 let qTotal = 0;
                 for (let j = 2; j <= 4; j++) if (r[j] == 1 || r[j] === '1') qTotal++;
@@ -721,162 +513,33 @@ const HTML_CONTENT = `<!DOCTYPE html>
         function processGuests(data) {
             guests = [];
             if (!data.length) return;
-            
-            // Track current quarter section as we parse
-            let currentQuarter = null;
-            const guestMap = new Map();
-            
-            // Quarterly meeting and project totals (6 meetings per quarter, projects dynamic)
-            const quarterlyTotals = {
-                q1: { meetings: 6, projects: 0 },
-                q2: { meetings: 6, projects: 0 },
-                q3: { meetings: 6, projects: 0 },
-                q4: { meetings: 6, projects: 0 }
-            };
-            
-            for (let i = 0; i < data.length; i++) {
+            const hdr = data.findIndex(r => r[0] === 'First Name');
+            const map = new Map();
+            for (let i = (hdr >= 0 ? hdr : 1) + 1; i < data.length; i++) {
                 const r = data[i];
-                if (!r[0]) continue;
-                
-                const firstCell = (r[0] || '').toString().trim();
-                const firstCellUpper = firstCell.toUpperCase();
-                
-                // Detect quarter section headers
-                if (firstCellUpper.includes('QUARTER') && (firstCellUpper.includes('REGISTER') || firstCellUpper.includes('ATTENDANCE'))) {
-                    // Determine which quarter from the header text
-                    if (firstCellUpper.includes('1ST') || firstCellUpper.includes('1st') || firstCellUpper.includes('FIRST')) {
-                        currentQuarter = 'q1';
-                    } else if (firstCellUpper.includes('2ND') || firstCellUpper.includes('2nd') || firstCellUpper.includes('SECOND')) {
-                        currentQuarter = 'q2';
-                    } else if (firstCellUpper.includes('3RD') || firstCellUpper.includes('3rd') || firstCellUpper.includes('THIRD')) {
-                        currentQuarter = 'q3';
-                    } else if (firstCellUpper.includes('4TH') || firstCellUpper.includes('4th') || firstCellUpper.includes('FOURTH')) {
-                        currentQuarter = 'q4';
-                    }
-                    continue;
-                }
-                
-                // Skip header rows
-                if (firstCell === 'First Name' || firstCell === 'NaN') continue;
-                
-                // Skip other header-like rows
-                const headerKeywords = ['CLUB', 'REGISTER', 'ATTENDANCE', 'TOTAL'];
-                const isHeader = headerKeywords.some(keyword => firstCellUpper.includes(keyword));
-                if (isHeader) continue;
-                
-                // Skip rows without proper name structure
-                const hasLastName = r[1] && r[1].toString().trim().length > 0;
-                const isAllCaps = firstCell === firstCellUpper && firstCell.length > 10;
-                if (isAllCaps && !hasLastName) continue;
-                
+                if (!r[0] || r[0] === 'First Name' || r[0] === 'NaN') continue;
                 const name = \`\${(r[0]||'').trim()} \${(r[1]||'').trim()}\`.trim();
                 if (!name || name === 'NaN NaN') continue;
                 if (NEW_MEMBERS_DEC7.includes(name)) continue;
-                
-                // Get or create guest record
-                let g = guestMap.get(name);
+                let g = map.get(name);
                 if (!g) {
-                    g = { 
-                        fullName: name, 
-                        firstName: r[0], 
-                        lastName: r[1], 
-                        status: '',
-                        // Quarterly attendance tracking
-                        quarters: {
-                            q1: { meetings: 0, projects: 0 },
-                            q2: { meetings: 0, projects: 0 },
-                            q3: { meetings: 0, projects: 0 },
-                            q4: { meetings: 0, projects: 0 }
-                        },
-                        // Cumulative totals (for backward compatibility)
-                        meetings: 0, 
-                        projects: 0,
-                        // Static criteria (only set once, not per quarter)
-                        info: false, 
-                        committee: false, 
-                        ug: false
-                    };
-                    guestMap.set(name, g);
+                    g = { fullName: name, firstName: r[0], lastName: r[1], status: '', meetings: 0, projects: 0, info: false, committee: false, ug: false };
+                    map.set(name, g);
                 }
-                
-                // Count meetings for current quarter (columns D-I, indices 3-8)
-                let quarterMeetings = 0;
-                for (let j = 3; j <= 8; j++) {
-                    if (r[j] == 1 || r[j] === 'TRUE' || r[j] === '1' || r[j] === true) {
-                        quarterMeetings++;
-                    }
-                }
-                
-                // Count projects for current quarter (columns M-W, indices 12-22)
-                let quarterProjects = 0;
-                for (let j = 12; j <= 22; j++) {
-                    if (r[j] == 1 || r[j] === 'TRUE' || r[j] === '1' || r[j] === true) {
-                        quarterProjects++;
-                    }
-                }
-                
-                // Store in the current quarter if we know it
-                if (currentQuarter && g.quarters[currentQuarter]) {
-                    g.quarters[currentQuarter].meetings = quarterMeetings;
-                    g.quarters[currentQuarter].projects = quarterProjects;
-                }
-                
-                // Add to cumulative totals
-                g.meetings += quarterMeetings;
-                g.projects += quarterProjects;
-                
-                // Static criteria - set if true in ANY quarter section (they persist)
+                for (let j = 3; j <= 8; j++) if (r[j] == 1 || r[j] === 'TRUE' || r[j] === '1') g.meetings++;
+                for (let j = 12; j <= 22; j++) if (r[j] == 1 || r[j] === 'TRUE' || r[j] === '1') g.projects++;
                 if (r[24] === 'TRUE' || r[24] == 1 || r[24] === '1' || r[24] === true) g.info = true;
                 if (r[25] === 'TRUE' || r[25] == 1 || r[25] === '1' || r[25] === true) g.committee = true;
                 if (r[26] === 'TRUE' || r[26] == 1 || r[26] === '1' || r[26] === true) g.ug = true;
-                
-                // Status (take the most recent non-empty value)
-                if (r[2] && r[2].toString().trim()) g.status = r[2].toString().trim();
+                if (r[2] && r[2] !== g.status) g.status = r[2];
             }
-            
-            // Calculate percentages for each guest
-            guestMap.forEach(g => {
-                // Calculate per-quarter percentages
-                ['q1', 'q2', 'q3', 'q4'].forEach(q => {
-                    const meetTotal = quarterlyTotals[q].meetings || 6;
-                    const projTotal = projectTotals[q] || quarterlyTotals[q].projects || 1;
-                    g.quarters[q].meetPct = meetTotal > 0 ? (g.quarters[q].meetings / meetTotal) * 100 : 0;
-                    g.quarters[q].projPct = projTotal > 0 ? (g.quarters[q].projects / projTotal) * 100 : 0;
-                    g.quarters[q].meetTotal = meetTotal;
-                    g.quarters[q].projTotal = projTotal;
-                });
-                
-                // Calculate cumulative percentages (H1 = Q1 + Q2 for backward compatibility)
-                const h1MeetTotal = TOTALS.h1.meetings || 12;
-                const h1ProjTotal = projectTotals.h1 || 1;
-                g.meetPct = h1MeetTotal > 0 ? (g.meetings / h1MeetTotal) * 100 : 0;
-                g.projPct = h1ProjTotal > 0 ? (g.projects / h1ProjTotal) * 100 : 0;
-                
+            map.forEach(g => {
+                const meetTotal = TOTALS.h1.meetings || 1;
+                const projTotal = projectTotals.h1 || 1;
+                g.meetPct = meetTotal > 0 ? (g.meetings / meetTotal) * 100 : 0;
+                g.projPct = projTotal > 0 ? (g.projects / projTotal) * 100 : 0;
                 guests.push(g);
             });
-        }
-        
-        // Get current Rotaract quarter
-        function getCurrentQuarter() {
-            const month = new Date().getMonth() + 1; // 1-12
-            if (month >= 7 && month <= 9) return 'q1';   // Jul-Sep
-            if (month >= 10 && month <= 12) return 'q2'; // Oct-Dec
-            if (month >= 1 && month <= 3) return 'q3';   // Jan-Mar
-            if (month >= 4 && month <= 6) return 'q4';   // Apr-Jun
-            return 'q1';
-        }
-        
-        // Check if guest is eligible for CURRENT quarter
-        function isGuestEligibleCurrentQuarter(g) {
-            const q = getCurrentQuarter();
-            const qData = g.quarters[q];
-            return (
-                qData.meetPct >= 60 &&
-                qData.projPct >= 50 &&
-                g.info &&
-                g.committee &&
-                g.ug
-            );
         }
         
         function formatDate(dateStr) {
@@ -913,69 +576,6 @@ const HTML_CONTENT = `<!DOCTYPE html>
             const m = today.getMonth() - inducted.getMonth();
             if (m < 0 || (m === 0 && today.getDate() < inducted.getDate())) years--;
             return years;
-        }
-        
-        // Get Rotaract quarter from date (Q1=Jul-Sep, Q2=Oct-Dec, Q3=Jan-Mar, Q4=Apr-Jun)
-        function getQuarterFromDate(dateStr) {
-            if (!dateStr) return null;
-            const d = parseInductionDate(dateStr);
-            if (!d) return null;
-            const month = d.getMonth() + 1; // 1-12
-            if (month >= 7 && month <= 9) return 'q1';
-            if (month >= 10 && month <= 12) return 'q2';
-            if (month >= 1 && month <= 3) return 'q3';
-            if (month >= 4 && month <= 6) return 'q4';
-            return null;
-        }
-        
-        // Check if member joined during the specified period IN THE CURRENT ROTARACT YEAR
-        function memberJoinedDuringPeriod(member, period) {
-            if (!member.dateInducted) return false;
-            
-            const inductionDate = parseInductionDate(member.dateInducted);
-            if (!inductionDate) return false;
-            
-            // Determine current Rotaract year boundaries (July 1 to June 30)
-            const today = new Date();
-            const currentYear = today.getFullYear();
-            const currentMonth = today.getMonth() + 1;
-            
-            let ryStart, ryEnd;
-            if (currentMonth >= 7) {
-                ryStart = new Date(currentYear, 6, 1);      // July 1 this year
-                ryEnd = new Date(currentYear + 1, 5, 30);   // June 30 next year
-            } else {
-                ryStart = new Date(currentYear - 1, 6, 1);  // July 1 last year
-                ryEnd = new Date(currentYear, 5, 30);       // June 30 this year
-            }
-            
-            // Only consider excluding if joined during CURRENT Rotaract year
-            if (inductionDate < ryStart) {
-                return false;  // Joined in previous Rotaract years - don't exclude from warnings
-            }
-            
-            const joinQuarter = getQuarterFromDate(member.dateInducted);
-            if (!joinQuarter) return false;
-            
-            // For single quarters, check direct match
-            if (period === joinQuarter) return true;
-            
-            // For h1, check if joined in Q1 or Q2 of current year
-            if (period === 'h1' && (joinQuarter === 'q1' || joinQuarter === 'q2')) return true;
-            
-            // For h2, check if joined in Q3 or Q4 of current year
-            if (period === 'h2' && (joinQuarter === 'q3' || joinQuarter === 'q4')) return true;
-            
-            // For annual, check if joined this Rotaract year (already filtered above)
-            if (period === 'annual') return true;
-            
-            // For elections (Q1+Q2+Jan), check Q1, Q2, or January of current year
-            if (period === 'elections') {
-                if (joinQuarter === 'q1' || joinQuarter === 'q2') return true;
-                if (inductionDate.getMonth() === 0) return true; // January
-            }
-            
-            return false;
         }
         
         function processMembers(data) {
@@ -1030,16 +630,15 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     projects: { q1: 0, q2: 0, q3: 0, q4: 0, h1: 0, h2: 0, annual: 0, elections: 0 },
                     meetingDetails: { q1: [], q2: [], q3: [], q4: [], h1: [], h2: [], annual: [], elections: [] },
                     missedMeetings: { q1: [], q2: [], q3: [], q4: [], h1: [], h2: [], annual: [], elections: [] },
-                    boardMeetings: isBoardMember && boardAttendance[normalizeName(name)] ? boardAttendance[normalizeName(name)] : null
+                    boardMeetings: isBoardMember && boardAttendance[name] ? boardAttendance[name] : null
                 });
             }
         }
         
         function linkNewMembersData() {
             NEW_MEMBERS_DEC7.forEach(name => {
-                const normalizedTarget = normalizeName(name);
-                const member = members.find(m => normalizeName(m.fullName) === normalizedTarget);
-                const guest = guests.find(g => normalizeName(g.fullName) === normalizedTarget);
+                const member = members.find(m => m.fullName === name);
+                const guest = guests.find(g => g.fullName === name);
                 if (member && guest) {
                     member.meetings.q1 = guest.meetings;
                     member.projects.q1 = guest.projects;
@@ -1049,31 +648,11 @@ const HTML_CONTENT = `<!DOCTYPE html>
             });
         }
         
-        // Normalize name for matching - handles whitespace, case, special characters
-        function normalizeName(name) {
-            if (!name) return '';
-            return name.toString()
-                .trim()
-                .toLowerCase()
-                .replace(/\\s+/g, ' ')           // Multiple spaces to single
-                .replace(/[\\u00A0]/g, ' ')      // Non-breaking space to regular
-                .replace(/[\\u2018\\u2019\\u0060]/g, "'")  // Smart quotes and backtick to regular apostrophe
-                .replace(/[^a-z\\s'-]/g, '');   // Remove other special chars
-        }
-        
         function calculateMemberStats() {
-            // Pre-normalize all attendance names for efficient matching
-            const normalizedAttendance = allAttendance.map(a => ({
-                ...a,
-                normalizedName: normalizeName(a.name)
-            }));
-            
             members.forEach(m => {
-                const memberNormalizedName = normalizeName(m.fullName);
-                
                 ['q1', 'q2', 'q3', 'q4', 'h1', 'h2', 'annual', 'elections'].forEach(p => {
-                    const att = normalizedAttendance.filter(a => {
-                        if (a.normalizedName !== memberNormalizedName) return false;
+                    const att = allAttendance.filter(a => {
+                        if (a.name !== m.fullName) return false;
                         // Elections = Q1 + Q2 + January meetings (month 1)
                         if (p === 'elections') return a.quarter === 'Q1' || a.quarter === 'Q2' || a.month === 1;
                         if (p === 'h1') return a.quarter === 'Q1' || a.quarter === 'Q2';
@@ -1081,12 +660,12 @@ const HTML_CONTENT = `<!DOCTYPE html>
                         if (p === 'annual') return ['Q1', 'Q2', 'Q3', 'Q4'].includes(a.quarter);
                         return a.quarter === p.toUpperCase();
                     });
-                    m.meetings[p] = att.filter(a => a.type === 'Business Meeting' || a.type === 'Fellowship Meeting').length;
+                    m.meetings[p] = att.filter(a => a.type === 'Business Meeting' || a.type === 'Fellowship Meeting' || a.type === 'Committee Meeting').length;
                     m.projects[p] = att.filter(a => a.type === 'Project').length;
-                    m.meetingDetails[p] = att.filter(a => a.type === 'Business Meeting' || a.type === 'Fellowship Meeting').map(a => ({ date: a.dateKey, type: a.type }));
+                    m.meetingDetails[p] = att.filter(a => a.type === 'Business Meeting' || a.type === 'Fellowship Meeting' || a.type === 'Committee Meeting').map(a => ({ date: a.dateKey, type: a.type }));
                     
                     const allMeetingDates = allAttendance.filter(a => {
-                        const isRegularMeeting = a.type === 'Business Meeting' || a.type === 'Fellowship Meeting';
+                        const isRegularMeeting = a.type === 'Business Meeting' || a.type === 'Fellowship Meeting' || a.type === 'Committee Meeting';
                         // Elections = Q1 + Q2 + January meetings
                         if (p === 'elections') return isRegularMeeting && (a.quarter === 'Q1' || a.quarter === 'Q2' || a.month === 1);
                         if (p === 'h1') return isRegularMeeting && (a.quarter === 'Q1' || a.quarter === 'Q2');
@@ -1220,7 +799,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             return \`
                 <div class="member-card \${statusClass}" onclick="showMemberDetails('\${m.fullName.replace(/'/g, "\\\\'")}')">
                     <div class="card-actions">
-                        <button class="card-action-btn" onclick="event.stopPropagation(); exportMemberCard('\${m.fullName.replace(/'/g, "\\\\'")}')">✨ Export</button>
+                        <button class="card-action-btn" onclick="event.stopPropagation(); exportMemberCard('\${m.fullName.replace(/'/g, "\\\\'")}')">âœ¨ Export</button>
                     </div>
                     <div class="card-header">
                         <div>
@@ -1267,128 +846,47 @@ const HTML_CONTENT = `<!DOCTYPE html>
             grid.innerHTML = filtered.map(g => renderGuestCard(g)).join('');
         }
         
-        // Check if guest is eligible - uses CURRENT QUARTER for attendance
         function isEligible(g) {
-            const q = getCurrentQuarter();
-            const qData = g.quarters ? g.quarters[q] : null;
-            
-            if (qData) {
-                // Current quarter eligibility
-                return qData.meetPct >= 60 && qData.projPct >= 50 && g.info && g.committee && g.ug;
-            }
-            // Fallback to cumulative (backward compatibility)
             return g.meetPct >= 60 && g.projPct >= 50 && g.info && g.committee && g.ug;
         }
         
         function renderGuestCard(g) {
-            const q = getCurrentQuarter();
-            const qData = g.quarters ? g.quarters[q] : null;
-            const quarterLabel = q.toUpperCase();
-            
-            // Use current quarter data for eligibility display
-            const meetPctDisplay = qData ? qData.meetPct : g.meetPct;
-            const projPctDisplay = qData ? qData.projPct : g.projPct;
-            const meetingsDisplay = qData ? qData.meetings : g.meetings;
-            const projectsDisplay = qData ? qData.projects : g.projects;
-            const meetTotalDisplay = qData ? qData.meetTotal || 6 : TOTALS.h1.meetings;
-            const projTotalDisplay = qData ? qData.projTotal || projectTotals[q] || 0 : projectTotals.h1 || 0;
-            
             const eligible = isEligible(g);
             const statusClass = eligible ? 'eligible' : g.ug ? 'guest' : 'notug';
-            const statusText = eligible ? '✅ Eligible' : !g.info ? '❓ Info Session Needed' : !g.ug ? '❌ Not UG' : '⏳ In Progress';
-            
-            // Only show interactive checkboxes if API is configured
-            const interactive = API_CONFIG.enabled;
-            const escapedName = g.fullName.replace(/'/g, "\\\\'");
-            
-            // Build quarterly breakdown section
-            let quarterlySection = '';
-            if (g.quarters) {
-                const quarterNames = { q1: 'Q1 (Jul-Sep)', q2: 'Q2 (Oct-Dec)', q3: 'Q3 (Jan-Mar)', q4: 'Q4 (Apr-Jun)' };
-                const activeQuarters = ['q1', 'q2', 'q3', 'q4'].filter(qKey => {
-                    const qd = g.quarters[qKey];
-                    return qd && (qd.meetings > 0 || qd.projects > 0);
-                });
-                
-                if (activeQuarters.length > 0) {
-                    quarterlySection = '<div class="quarterly-breakdown"><div class="quarterly-title">Quarterly Breakdown:</div>';
-                    activeQuarters.forEach(qKey => {
-                        const qd = g.quarters[qKey];
-                        const isCurrent = qKey === q;
-                        const qMeetPct = qd.meetPct || 0;
-                        const qProjPct = qd.projPct || 0;
-                        const meetOk = qMeetPct >= 60;
-                        const projOk = qProjPct >= 50;
-                        quarterlySection += \`
-                            <div class="quarter-row \${isCurrent ? 'current-quarter' : ''}">
-                                <span class="quarter-label">\${quarterNames[qKey]}\${isCurrent ? ' ★' : ''}</span>
-                                <span class="quarter-stats">
-                                    <span class="\${meetOk ? 'stat-ok' : 'stat-fail'}">M: \${qd.meetings}/\${qd.meetTotal || 6}</span>
-                                    <span class="\${projOk ? 'stat-ok' : 'stat-fail'}">P: \${qd.projects}/\${qd.projTotal || 0}</span>
-                                </span>
-                            </div>
-                        \`;
-                    });
-                    quarterlySection += '</div>';
-                }
-            }
+            const statusText = eligible ? 'âœ… Eligible' : !g.info ? 'â“ Info Session Needed' : !g.ug ? 'âŒ Not UG' : 'â³ In Progress';
             
             return \`
                 <div class="member-card \${statusClass}">
                     <div class="card-header">
                         <div>
                             <div class="member-name">\${g.fullName}</div>
-                            <div class="member-tag">Guest · \${quarterLabel} Status</div>
+                            <div class="member-tag">Guest</div>
                         </div>
                         <span class="status-badge status-\${statusClass.replace('guest', 'infosession')}">\${statusText}</span>
                     </div>
                     <div class="progress-row">
-                        <span class="progress-label">\${quarterLabel} Meetings</span>
+                        <span class="progress-label">Meetings</span>
                         <div class="progress-bar">
-                            <div class="progress-fill meetings" style="width: \${Math.min(meetPctDisplay, 100)}%"></div>
+                            <div class="progress-fill meetings" style="width: \${Math.min(g.meetPct, 100)}%"></div>
                         </div>
-                        <span class="progress-value">\${meetingsDisplay}/\${meetTotalDisplay} (\${Math.round(meetPctDisplay)}%)</span>
+                        <span class="progress-value">\${g.meetings}/\${TOTALS.h1.meetings} (\${Math.round(g.meetPct)}%)</span>
                     </div>
                     <div class="progress-row">
-                        <span class="progress-label">\${quarterLabel} Projects</span>
+                        <span class="progress-label">Projects</span>
                         <div class="progress-bar">
-                            <div class="progress-fill projects" style="width: \${Math.min(projPctDisplay, 100)}%"></div>
+                            <div class="progress-fill projects" style="width: \${Math.min(g.projPct, 100)}%"></div>
                         </div>
-                        <span class="progress-value">\${projectsDisplay}/\${projTotalDisplay} (\${Math.round(projPctDisplay)}%)</span>
+                        <span class="progress-value">\${g.projects}/\${projectTotals.h1 || 0} (\${Math.round(g.projPct)}%)</span>
                     </div>
-                    \${quarterlySection}
                     <div class="checklist">
-                        <div class="checklist-title">Current Quarter Requirements:</div>
-                        <div class="check-item \${meetPctDisplay >= 60 ? 'check-done' : 'check-pending'}">\${meetPctDisplay >= 60 ? '✅' : '❌'} 60% Meetings (\${Math.round(meetPctDisplay)}%)</div>
-                        <div class="check-item \${projPctDisplay >= 50 ? 'check-done' : 'check-pending'}">\${projPctDisplay >= 50 ? '✅' : '❌'} 50% Projects (\${Math.round(projPctDisplay)}%)</div>
-                        <div class="checklist-title" style="margin-top:8px;">Static Requirements:</div>
-                        <div class="check-item \${g.info ? 'check-done' : 'check-pending'} \${interactive ? 'clickable' : ''}" 
-                             \${interactive ? \`onclick="toggleGuestCheckbox('\${escapedName}', 'infoSession', \${!g.info})"\` : ''}
-                             \${interactive ? 'title="Click to toggle"' : ''}>
-                            \${g.info ? '✅' : '❌'} Info Session
-                        </div>
-                        <div class="check-item \${g.committee ? 'check-done' : 'check-pending'} \${interactive ? 'clickable' : ''}"
-                             \${interactive ? \`onclick="toggleGuestCheckbox('\${escapedName}', 'committeeMeeting', \${!g.committee})"\` : ''}
-                             \${interactive ? 'title="Click to toggle"' : ''}>
-                            \${g.committee ? '✅' : '❌'} Committee Meeting
-                        </div>
-                        <div class="check-item \${g.ug ? 'check-done' : 'check-pending'} \${interactive ? 'clickable' : ''}"
-                             \${interactive ? \`onclick="toggleGuestCheckbox('\${escapedName}', 'ugStatus', \${!g.ug})"\` : ''}
-                             \${interactive ? 'title="Click to toggle"' : ''}>
-                            \${g.ug ? '✅' : '❌'} UG Student/Graduate
-                        </div>
+                        <div class="check-item \${g.meetPct >= 60 ? 'check-done' : 'check-pending'}">\${g.meetPct >= 60 ? 'âœ…' : 'âŒ'} 60% Meetings (\${Math.round(g.meetPct)}%)</div>
+                        <div class="check-item \${g.projPct >= 50 ? 'check-done' : 'check-pending'}">\${g.projPct >= 50 ? 'âœ…' : 'âŒ'} 50% Projects (\${Math.round(g.projPct)}%)</div>
+                        <div class="check-item \${g.info ? 'check-done' : 'check-pending'}">\${g.info ? 'âœ…' : 'âŒ'} Info Session</div>
+                        <div class="check-item \${g.committee ? 'check-done' : 'check-pending'}">\${g.committee ? 'âœ…' : 'âŒ'} Committee Meeting</div>
+                        <div class="check-item \${g.ug ? 'check-done' : 'check-pending'}">\${g.ug ? 'âœ…' : 'âŒ'} UG Student/Graduate</div>
                     </div>
-                    \${interactive ? '<div class="card-footer-hint">Click static checkboxes to update</div>' : ''}
                 </div>
             \`;
-        }
-        
-        // Global function for checkbox toggle (called from onclick)
-        async function toggleGuestCheckbox(guestName, field, newValue) {
-            const result = await updateGuestCheckbox(guestName, field, newValue);
-            if (result.success) {
-                renderGuests(); // Re-render to show updated state
-            }
         }
         
         // Modal Functions
@@ -1437,7 +935,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 <div class="modal-header">
                     <div class="modal-name">\${m.fullName}</div>
                     <div class="modal-email">\${m.email || 'No email on file'}</div>
-                    \${m.contact ? \`<div class="modal-contact">📞 \${m.contact}</div>\` : ''}
+                    \${m.contact ? \`<div class="modal-contact">ðŸ“ž \${m.contact}</div>\` : ''}
                 </div>
                 
                 <div class="detail-section">
@@ -1532,27 +1030,6 @@ const HTML_CONTENT = `<!DOCTYPE html>
             const m = members.find(mem => mem.fullName === name);
             if (!m) return;
             
-            // Get current period values for export
-            const period = currentPeriod;
-            const periodNames = { q1: 'Quarter 1', q2: 'Quarter 2', q3: 'Quarter 3', q4: 'Quarter 4', h1: 'Half 1', h2: 'Half 2', annual: 'Annual', elections: 'Elections Period' };
-            const periodName = periodNames[period] || period.toUpperCase();
-            const meetTotal = meetingTotals[period] || TOTALS[period].meetings || 1;
-            const projTotal = projectTotals[period] || 0;
-            const meetPct = meetTotal > 0 ? Math.round((m.meetings[period] / meetTotal) * 100) : 0;
-            const projPct = projTotal > 0 ? Math.round((m.projects[period] / projTotal) * 100) : 0;
-            
-            // Calculate board meetings for the selected period
-            let boardHtml = '';
-            if (m.isBoardMember && m.boardMeetings) {
-                let bp, btotal;
-                if (period === 'h1') { bp = (m.boardMeetings.q1 || 0) + (m.boardMeetings.q2 || 0); btotal = 6; }
-                else if (period === 'h2') { bp = (m.boardMeetings.q3 || 0) + (m.boardMeetings.q4 || 0); btotal = 6; }
-                else if (period === 'annual') { bp = m.boardMeetings.total || 0; btotal = 12; }
-                else if (period === 'elections') { bp = (m.boardMeetings.q1 || 0) + (m.boardMeetings.q2 || 0) + (m.boardMeetings.q3 || 0); btotal = 9; }
-                else { bp = m.boardMeetings[period] || 0; btotal = 3; }
-                boardHtml = \`<p><strong>Board Meetings:</strong> \${bp}/\${btotal}</p>\`;
-            }
-            
             // Show member in temporary printable div
             const printDiv = document.createElement('div');
             printDiv.style.cssText = 'position:fixed;left:-9999px;width:800px;padding:40px;background:white;color:black;';
@@ -1567,15 +1044,15 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     <p><strong>Contact:</strong> \${m.contact || 'N/A'}</p>
                     <p><strong>Category:</strong> \${m.category}</p>
                     <hr>
-                    <h3>Attendance Summary (\${periodName})</h3>
-                    <p><strong>Meetings:</strong> \${m.meetings[period]}/\${meetTotal} (\${meetPct}%)</p>
-                    <p><strong>Projects:</strong> \${m.projects[period]}/\${projTotal} (\${projPct}%)</p>
-                    \${boardHtml}
+                    <h3>Attendance Summary (Half 1)</h3>
+                    <p><strong>Meetings:</strong> \${m.meetings.h1}/\${TOTALS.h1.meetings} (\${Math.round((m.meetings.h1/TOTALS.h1.meetings)*100)}%)</p>
+                    <p><strong>Projects:</strong> \${m.projects.h1}/\${TOTALS.h1.projects} (\${Math.round((m.projects.h1/TOTALS.h1.projects)*100)}%)</p>
+                    \${m.isBoardMember && m.boardMeetings ? \`<p><strong>Board Meetings:</strong> \${m.boardMeetings.q1 + m.boardMeetings.q2}/6</p>\` : ''}
                     <hr>
                     <h3>Meetings Attended</h3>
-                    <ul>\${m.meetingDetails[period].map(md => \`<li>\${md.date} - \${md.type}</li>\`).join('') || '<li>None</li>'}</ul>
+                    <ul>\${m.meetingDetails.h1.map(md => \`<li>\${md.date} - \${md.type}</li>\`).join('') || '<li>None</li>'}</ul>
                     <h3>Meetings Missed</h3>
-                    <ul>\${m.missedMeetings[period].map(d => \`<li>\${d}</li>\`).join('') || '<li>None</li>'}</ul>
+                    <ul>\${m.missedMeetings.h1.map(d => \`<li>\${d}</li>\`).join('') || '<li>None</li>'}</ul>
                 </div>
                 <div style="text-align:center;margin-top:20px;color:#666;font-size:12px;">
                     Generated: \${new Date().toLocaleString()}
@@ -1593,7 +1070,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 const imgHeight = (canvas.height * imgWidth) / canvas.width;
                 
                 pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-                pdf.save(\`\${m.fullName.replace(/\s+/g, '_')}_\${period.toUpperCase()}_Attendance_Card.pdf\`);
+                pdf.save(\`\${m.fullName.replace(/\s+/g, '_')}_Attendance_Card.pdf\`);
             } catch (error) {
                 console.error('Export error:', error);
                 alert('Error generating PDF. Please try again.');
@@ -1608,7 +1085,6 @@ const HTML_CONTENT = `<!DOCTYPE html>
             updateAnniversaryReport();
             updateAttendanceWarningReport();
             updateGuestEligibilityReport();
-            updateElectionsEligibilityReport();
         }
         
         function updateBirthdayReport() {
@@ -1716,8 +1192,6 @@ const HTML_CONTENT = `<!DOCTYPE html>
             
             const atRisk = members.filter(m => {
                 if (m.isTerminated || m.isOnLeave) return false;
-                // Exclude members who joined during the selected period (they couldn't attend all meetings)
-                if (memberJoinedDuringPeriod(m, period)) return false;
                 const pct = meetTotal > 0 ? (m.meetings[period] / meetTotal) * 100 : 0;
                 return pct < 60;
             }).sort((a, b) => {
@@ -1727,7 +1201,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             });
             
             if (atRisk.length === 0) {
-                table.innerHTML = '<p style="text-align:center;color:#27ae60;padding:20px;">✅ All members meet attendance requirements!</p>';
+                table.innerHTML = '<p style="text-align:center;color:#27ae60;padding:20px;">âœ… All members meet attendance requirements!</p>';
                 return;
             }
             
@@ -1787,9 +1261,9 @@ const HTML_CONTENT = `<!DOCTYPE html>
                                 <td>\${g.fullName}</td>
                                 <td>\${g.meetings}/\${TOTALS.h1.meetings}</td>
                                 <td>\${g.projects}/\${TOTALS.h1.projects}</td>
-                                <td style="color:#27ae60">\${g.info ? '✅' : '❌'}</td>
-                                <td style="color:#27ae60">\${g.committee ? '✅' : '❌'}</td>
-                                <td style="color:#27ae60">\${g.ug ? '✅' : '❌'}</td>
+                                <td style="color:#27ae60">\${g.info ? 'âœ…' : 'âŒ'}</td>
+                                <td style="color:#27ae60">\${g.committee ? 'âœ…' : 'âŒ'}</td>
+                                <td style="color:#27ae60">\${g.ug ? 'âœ…' : 'âŒ'}</td>
                             </tr>
                         \`).join('')}
                     </tbody>
@@ -1880,12 +1354,9 @@ const HTML_CONTENT = `<!DOCTYPE html>
         
         async function generateAttendanceWarningPDF() {
             const period = document.getElementById('quarterFilter').value;
-            const meetTotal = meetingTotals[period] || TOTALS[period].meetings || 1;
             const atRisk = members.filter(m => {
-                if (m.isTerminated || m.isOnLeave) return false;
-                // Exclude members who joined during the selected period
-                if (memberJoinedDuringPeriod(m, period)) return false;
-                const pct = meetTotal > 0 ? (m.meetings[period] / meetTotal) * 100 : 0;
+                if (m.isTerminated) return false;
+                const pct = (m.meetings[period] / TOTALS[period].meetings) * 100;
                 return pct < 60;
             });
             
@@ -1893,8 +1364,6 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 alert('No members below attendance threshold!');
                 return;
             }
-            
-            const periodNames = { q1: 'Quarter 1 (Jul-Sep)', q2: 'Quarter 2 (Oct-Dec)', q3: 'Quarter 3 (Jan-Mar)', q4: 'Quarter 4 (Apr-Jun)', h1: 'Half 1 (Q1+Q2)', h2: 'Half 2 (Q3+Q4)', annual: 'Annual', elections: 'Elections (Q1+Q2+Jan)' };
             
             const { jsPDF } = window.jspdf;
             const pdf = new jsPDF('p', 'mm', 'a4');
@@ -1909,7 +1378,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             
             pdf.setFontSize(12);
             pdf.setTextColor(100, 100, 100);
-            pdf.text(\`Period: \${periodNames[period] || period.toUpperCase()}\`, 105, 38, { align: 'center' });
+            pdf.text(\`Period: \${period.toUpperCase()}\`, 105, 38, { align: 'center' });
             
             pdf.setFontSize(10);
             pdf.setTextColor(0, 0, 0);
@@ -1920,9 +1389,9 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     pdf.addPage();
                     y = 20;
                 }
-                const pct = Math.round(meetTotal > 0 ? (m.meetings[period] / meetTotal) * 100 : 0);
+                const pct = Math.round((m.meetings[period] / TOTALS[period].meetings) * 100);
                 pdf.text(\`\${m.fullName}\`, 20, y);
-                pdf.text(\`\${m.meetings[period]}/\${meetTotal}\`, 120, y);
+                pdf.text(\`\${m.meetings[period]}/\${TOTALS[period].meetings}\`, 120, y);
                 pdf.setTextColor(pct < 50 ? 231 : 230, pct < 50 ? 76 : 126, pct < 50 ? 60 : 34);
                 pdf.text(\`\${pct}%\`, 160, y);
                 pdf.setTextColor(0, 0, 0);
@@ -1938,12 +1407,9 @@ const HTML_CONTENT = `<!DOCTYPE html>
         
         function generateAttendanceWarningCSV() {
             const period = document.getElementById('quarterFilter').value;
-            const meetTotal = meetingTotals[period] || TOTALS[period].meetings || 1;
             const atRisk = members.filter(m => {
-                if (m.isTerminated || m.isOnLeave) return false;
-                // Exclude members who joined during the selected period
-                if (memberJoinedDuringPeriod(m, period)) return false;
-                const pct = meetTotal > 0 ? (m.meetings[period] / meetTotal) * 100 : 0;
+                if (m.isTerminated) return false;
+                const pct = (m.meetings[period] / TOTALS[period].meetings) * 100;
                 return pct < 60;
             });
             
@@ -1954,8 +1420,8 @@ const HTML_CONTENT = `<!DOCTYPE html>
             
             let csv = 'Name,Meetings Attended,Total Meetings,Attendance %,Projects,Email\\n';
             atRisk.forEach(m => {
-                const pct = Math.round(meetTotal > 0 ? (m.meetings[period] / meetTotal) * 100 : 0);
-                csv += \`"\${m.fullName}",\${m.meetings[period]},\${meetTotal},\${pct}%,\${m.projects[period]},"\${m.email || 'N/A'}"\\n\`;
+                const pct = Math.round((m.meetings[period] / TOTALS[period].meetings) * 100);
+                csv += \`"\${m.fullName}",\${m.meetings[period]},\${TOTALS[period].meetings},\${pct}%,\${m.projects[period]},"\${m.email || 'N/A'}"\\n\`;
             });
             
             const blob = new Blob([csv], { type: 'text/csv' });
@@ -1998,7 +1464,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 pdf.text(\`Mtgs: \${g.meetings}/\${TOTALS.h1.meetings}\`, 100, y);
                 pdf.text(\`Proj: \${g.projects}/\${TOTALS.h1.projects}\`, 140, y);
                 pdf.setTextColor(39, 174, 96);
-                pdf.text('✓ Ready', 170, y);
+                pdf.text('âœ“ Ready', 170, y);
                 pdf.setTextColor(0, 0, 0);
                 y += 7;
             });
@@ -2028,332 +1494,6 @@ const HTML_CONTENT = `<!DOCTYPE html>
             const a = document.createElement('a');
             a.href = url;
             a.download = \`RCUG_Guest_Eligibility_\${new Date().getFullYear()}.csv\`;
-            a.click();
-        }
-        
-        // Elections Eligibility Report Functions (Bylaws Article 7)
-        // Elections Eligibility per Bylaws Article 7, Section 1:
-        // "A list of eligible members, who fulfil both financial and attendance requirements, 
-        // shall be shared to all members by January's fellowship meeting."
-        // Requires: 60% attendance during elections period (Q1+Q2+Jan) for meetings AFTER induction
-        function isElectionsEligible(m) {
-            if (m.isTerminated) return false;
-            
-            // Members inducted in Q2 (Oct-Dec) of current Rotaract year are automatically eligible
-            // They haven't had enough meetings to fairly evaluate attendance
-            const inductionDate = parseInductionDate(m.dateInducted);
-            if (inductionDate) {
-                // Determine current Rotaract year Q2 boundaries (Oct 1 - Dec 31)
-                const today = new Date();
-                const currentYear = today.getFullYear();
-                const currentMonth = today.getMonth() + 1;
-                
-                let q2Start, q2End;
-                if (currentMonth >= 7) {
-                    // We're in Jul-Dec of current year (first half of Rotaract year)
-                    q2Start = new Date(currentYear, 9, 1);      // Oct 1 this year
-                    q2End = new Date(currentYear, 11, 31);      // Dec 31 this year
-                } else {
-                    // We're in Jan-Jun (second half of Rotaract year)
-                    q2Start = new Date(currentYear - 1, 9, 1);  // Oct 1 last year
-                    q2End = new Date(currentYear - 1, 11, 31);  // Dec 31 last year
-                }
-                
-                // If inducted during Q2, automatically eligible
-                if (inductionDate >= q2Start && inductionDate <= q2End) {
-                    return true;
-                }
-            }
-            
-            // Get elections attendance stats adjusted for induction date
-            const stats = getElectionsAttendanceStats(m);
-            
-            // Must have 60% attendance of meetings they COULD attend (after induction)
-            return stats.pct >= 60;
-        }
-        
-        // Robust date parser that handles various formats and whitespace issues
-        function parseInductionDate(dateStr) {
-            if (!dateStr) return null;
-            
-            // Clean the string - remove extra whitespace, non-breaking spaces, etc.
-            let cleaned = dateStr.toString().trim().replace(/\\s+/g, ' ').replace(/\\u00A0/g, ' ');
-            
-            // Try direct parsing first
-            let d = new Date(cleaned);
-            if (!isNaN(d) && d.getFullYear() > 2000) return d;
-            
-            // Try parsing "7 December 2025" format manually
-            const months = {
-                'january': 0, 'february': 1, 'march': 2, 'april': 3, 'may': 4, 'june': 5,
-                'july': 6, 'august': 7, 'september': 8, 'october': 9, 'november': 10, 'december': 11,
-                'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'jun': 5, 'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
-            };
-            
-            // Match "7 December 2025" or "December 7, 2025" or "7 Dec 2025"
-            const match1 = cleaned.match(/(\\d{1,2})\\s+(\\w+)\\s+(\\d{4})/i);
-            if (match1) {
-                const day = parseInt(match1[1]);
-                const month = months[match1[2].toLowerCase()];
-                const year = parseInt(match1[3]);
-                if (month !== undefined && day >= 1 && day <= 31 && year > 2000) {
-                    return new Date(year, month, day);
-                }
-            }
-            
-            // Match "December 7, 2025"
-            const match2 = cleaned.match(/(\\w+)\\s+(\\d{1,2}),?\\s+(\\d{4})/i);
-            if (match2) {
-                const month = months[match2[1].toLowerCase()];
-                const day = parseInt(match2[2]);
-                const year = parseInt(match2[3]);
-                if (month !== undefined && day >= 1 && day <= 31 && year > 2000) {
-                    return new Date(year, month, day);
-                }
-            }
-            
-            console.log('Failed to parse induction date:', dateStr, '-> cleaned:', cleaned);
-            return null;
-        }
-        
-        // Calculate elections period attendance based on meetings AFTER member's induction date
-        // This ensures members inducted mid-period are only evaluated on meetings they could attend
-        function getElectionsAttendanceStats(m) {
-            // Get all meeting dates in elections period (Q1+Q2+January)
-            const electionsMeetingDates = allAttendance.filter(a => {
-                const isRegularMeeting = a.type === 'Business Meeting' || a.type === 'Fellowship Meeting';
-                if (!isRegularMeeting) return false;
-                return a.quarter === 'Q1' || a.quarter === 'Q2' || a.month === 1;
-            }).map(a => a.dateKey).filter((v, i, arr) => arr.indexOf(v) === i);
-            
-            // If member has induction date, only count meetings AFTER that date
-            let eligibleMeetingDates = electionsMeetingDates;
-            const inductionDate = parseInductionDate(m.dateInducted);
-            
-            if (inductionDate) {
-                eligibleMeetingDates = electionsMeetingDates.filter(dateKey => {
-                    const meetingDate = new Date(dateKey);
-                    return meetingDate >= inductionDate;
-                });
-            }
-            
-            const total = eligibleMeetingDates.length;
-            
-            // Count meetings attended from the eligible set
-            const attendedMeetings = m.meetingDetails.elections || [];
-            const attended = attendedMeetings.filter(md => 
-                eligibleMeetingDates.includes(md.date)
-            ).length;
-            
-            const pct = total > 0 ? (attended / total) * 100 : 0;
-            
-            return { 
-                attended, 
-                total, 
-                pct: Math.round(pct),
-                inductionAdjusted: inductionDate ? true : false
-            };
-        }
-        
-        function updateElectionsEligibilityReport() {
-            const table = document.getElementById('electionsEligibilityTable');
-            
-            // Per Bylaws Art. 7, Sec. 1: Must have 60% attendance + financial requirements
-            const eligible = members.filter(m => !m.isTerminated && isElectionsEligible(m));
-            const notEligible = members.filter(m => !m.isTerminated && !isElectionsEligible(m));
-            
-            if (eligible.length === 0) {
-                table.innerHTML = '<p style="text-align:center;color:#e67e22;padding:20px;">⚠️ No members currently meet elections eligibility requirements</p>';
-                return;
-            }
-            
-            // Sort by attendance percentage (highest first)
-            const sortedEligible = [...eligible].sort((a, b) => {
-                const aStats = getElectionsAttendanceStats(a);
-                const bStats = getElectionsAttendanceStats(b);
-                return bStats.pct - aStats.pct;
-            });
-            
-            table.innerHTML = \`
-                <div style="margin-bottom:15px;padding:10px;background:rgba(39,174,96,0.1);border-radius:8px;">
-                    <p style="color:#27ae60;font-weight:600;margin:0;">✅ Eligible for Nominations: \${eligible.length} members</p>
-                    <p style="color:#e74c3c;font-weight:600;margin:5px 0 0 0;">❌ Not Eligible: \${notEligible.length} members</p>
-                    <p style="color:#7f8c8d;font-size:0.85rem;margin:5px 0 0 0;">Per Bylaws Art. 7, Sec. 1: 60% attendance (Q1+Q2+Jan) + financial requirements</p>
-                </div>
-                <p style="color:#bdc3c7;font-size:0.85rem;margin-bottom:10px;">* Members inducted mid-period are evaluated on meetings after their induction date</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Induction Date</th>
-                            <th>Meetings</th>
-                            <th>Attendance</th>
-                            <th>Email</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        \${sortedEligible.map(m => {
-                            const stats = getElectionsAttendanceStats(m);
-                            const inductionInfo = m.dateInducted ? formatDate(m.dateInducted) : 'N/A';
-                            const pctColor = stats.pct >= 60 ? '#27ae60' : stats.pct >= 40 ? '#e67e22' : '#e74c3c';
-                            const adjustedNote = stats.inductionAdjusted && stats.total < (meetingTotals.elections || 10) ? ' *' : '';
-                            return \`
-                                <tr>
-                                    <td>\${m.fullName}\${adjustedNote}</td>
-                                    <td style="color:#7f8c8d">\${inductionInfo}</td>
-                                    <td>\${stats.attended}/\${stats.total}</td>
-                                    <td style="color:\${pctColor}">\${stats.pct}%</td>
-                                    <td>\${m.email || 'N/A'}</td>
-                                </tr>
-                            \`;
-                        }).join('')}
-                    </tbody>
-                </table>
-            \`;
-        }
-        
-        async function generateElectionsEligibilityPDF() {
-            const meetTotal = meetingTotals.elections || TOTALS.elections.meetings || 1;
-            const eligible = members.filter(m => !m.isTerminated && isElectionsEligible(m));
-            const notEligible = members.filter(m => !m.isTerminated && !isElectionsEligible(m));
-            
-            if (eligible.length === 0) {
-                alert('No members currently eligible for elections!');
-                return;
-            }
-            
-            const { jsPDF } = window.jspdf;
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            
-            // Header with club branding
-            pdf.setFillColor(233, 30, 99);
-            pdf.rect(0, 0, 210, 35, 'F');
-            
-            pdf.setFontSize(22);
-            pdf.setTextColor(255, 255, 255);
-            pdf.text('Rotaract Club of University of Guyana', 105, 15, { align: 'center' });
-            
-            pdf.setFontSize(14);
-            pdf.text('Elections Eligibility Report', 105, 25, { align: 'center' });
-            
-            // Metadata section - corrected bylaws reference
-            pdf.setFontSize(10);
-            pdf.setTextColor(100, 100, 100);
-            pdf.text('Per Bylaws Article 7, Section 1 - Members meeting attendance & financial requirements', 105, 45, { align: 'center' });
-            pdf.text('60% attendance required (Q1 + Q2 + January) to be eligible for nominations', 105, 52, { align: 'center' });
-            
-            // Summary boxes - eligible and not eligible
-            pdf.setFillColor(39, 174, 96);
-            pdf.roundedRect(25, 58, 75, 15, 3, 3, 'F');
-            pdf.setTextColor(255, 255, 255);
-            pdf.setFontSize(11);
-            pdf.text('Eligible: ' + eligible.length + ' members', 62.5, 67, { align: 'center' });
-            
-            pdf.setFillColor(231, 76, 60);
-            pdf.roundedRect(110, 58, 75, 15, 3, 3, 'F');
-            pdf.text('Not Eligible: ' + notEligible.length + ' members', 147.5, 67, { align: 'center' });
-            
-            // Table header
-            let y = 85;
-            pdf.setFillColor(52, 73, 94);
-            pdf.rect(15, y - 6, 180, 10, 'F');
-            pdf.setTextColor(255, 255, 255);
-            pdf.setFontSize(10);
-            pdf.text('Name', 20, y);
-            pdf.text('Inducted', 90, y);
-            pdf.text('Meetings', 130, y);
-            pdf.text('Attendance', 165, y);
-            
-            y += 8;
-            pdf.setTextColor(0, 0, 0);
-            pdf.setFontSize(9);
-            
-            // Sort by attendance for nominations consideration (using adjusted stats)
-            const sortedEligible = [...eligible].sort((a, b) => {
-                const aStats = getElectionsAttendanceStats(a);
-                const bStats = getElectionsAttendanceStats(b);
-                return bStats.pct - aStats.pct;
-            });
-            
-            sortedEligible.forEach((m, idx) => {
-                if (y > 265) {
-                    pdf.addPage();
-                    // Repeat header on new page
-                    y = 20;
-                    pdf.setFillColor(52, 73, 94);
-                    pdf.rect(15, y - 6, 180, 10, 'F');
-                    pdf.setTextColor(255, 255, 255);
-                    pdf.setFontSize(10);
-                    pdf.text('Name', 20, y);
-                    pdf.text('Inducted', 90, y);
-                    pdf.text('Meetings', 130, y);
-                    pdf.text('Attendance', 165, y);
-                    y += 8;
-                    pdf.setTextColor(0, 0, 0);
-                    pdf.setFontSize(9);
-                }
-                
-                // Alternate row colors
-                if (idx % 2 === 0) {
-                    pdf.setFillColor(245, 247, 250);
-                    pdf.rect(15, y - 4, 180, 7, 'F');
-                }
-                
-                // Use adjusted stats for proper induction-date-aware calculations
-                const stats = getElectionsAttendanceStats(m);
-                const inductionDate = m.dateInducted ? formatDate(m.dateInducted) : 'N/A';
-                const pctColor = stats.pct >= 60 ? [39, 174, 96] : stats.pct >= 40 ? [230, 126, 34] : [231, 76, 60];
-                
-                // Add asterisk for members with adjusted meeting counts
-                const nameDisplay = (stats.total < meetTotal && m.dateInducted) ? m.fullName + ' *' : m.fullName;
-                
-                pdf.setTextColor(0, 0, 0);
-                pdf.text(nameDisplay, 20, y);
-                pdf.setTextColor(127, 140, 141);
-                pdf.text(inductionDate, 90, y);
-                pdf.setTextColor(0, 0, 0);
-                pdf.text(stats.attended + '/' + stats.total, 135, y);
-                pdf.setTextColor(pctColor[0], pctColor[1], pctColor[2]);
-                pdf.text(stats.pct + '%', 172, y);
-                y += 7;
-            });
-            
-            // Footer
-            pdf.setFillColor(240, 240, 240);
-            pdf.rect(0, 270, 210, 27, 'F');
-            pdf.setFontSize(8);
-            pdf.setTextColor(100, 100, 100);
-            pdf.text('Generated: ' + new Date().toLocaleString(), 20, 277);
-            pdf.text('Prepared by: Membership Chair', 105, 277, { align: 'center' });
-            pdf.text('For Secretary Distribution', 190, 277, { align: 'right' });
-            
-            pdf.setFontSize(7);
-            pdf.text('* Members inducted mid-period are evaluated only on meetings after their induction date', 105, 284, { align: 'center' });
-            pdf.text('This list shall be shared to all members by January Fellowship Meeting (Bylaws Art. 7, Sec. 1)', 105, 290, { align: 'center' });
-            
-            pdf.save('RCUG_Elections_Eligibility_' + new Date().getFullYear() + '.pdf');
-        }
-        
-        function generateElectionsEligibilityCSV() {
-            const eligible = members.filter(m => !m.isTerminated && isElectionsEligible(m));
-            
-            if (eligible.length === 0) {
-                alert('No members currently eligible for elections!');
-                return;
-            }
-            
-            let csv = 'Name,Induction Date,Meetings Attended,Total Meetings,Attendance %,Email\\n';
-            eligible.forEach(m => {
-                const stats = getElectionsAttendanceStats(m);
-                const inductionDate = m.dateInducted ? formatDate(m.dateInducted) : 'N/A';
-                csv += '"' + m.fullName + '","' + inductionDate + '",' + stats.attended + ',' + stats.total + ',' + stats.pct + '%,"' + (m.email || 'N/A') + '"\\n';
-            });
-            
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'RCUG_Elections_Eligibility_' + new Date().getFullYear() + '.csv';
             a.click();
         }
         
