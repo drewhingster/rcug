@@ -520,7 +520,16 @@ const HTML_CONTENT = `<!DOCTYPE html>
             meetingSchedule = [];
             if (!data.length) return;
             
-            const hdr = data.findIndex(r => r[0] === 'ID' || r[1] === 'Date');
+            // Find header row - check multiple conditions
+            let hdr = data.findIndex(r => r[0] === 'ID' || r[1] === 'Date');
+            
+            // If not found, check if column 0 contains 'ID' or column 1 contains 'Date'
+            if (hdr < 0) {
+                hdr = data.findIndex(r => (r[0] && r[0].toString().includes('ID')) || (r[1] && r[1].toString() === 'Date'));
+            }
+            
+            console.log('Meeting schedule header row found at:', hdr);
+            
             for (let i = (hdr >= 0 ? hdr : 0) + 1; i < data.length; i++) {
                 const r = data[i];
                 if (!r[1]) continue;
@@ -557,32 +566,27 @@ const HTML_CONTENT = `<!DOCTYPE html>
         // ============================================
         function processAttendance(data) {
             allAttendance = [];
-            if (!data.length) {
-                console.log('DEBUG: No attendance data received');
-                return;
-            }
-            console.log('DEBUG: Attendance data rows:', data.length);
-            console.log('DEBUG: First row:', data[0]);
-            console.log('DEBUG: Second row:', data[1]);
-            console.log('DEBUG: Third row:', data[2]);
+            if (!data.length) return;
             
-            const hdr = data.findIndex(r => r[0] === 'Full Name');
-            console.log('DEBUG: Header row index:', hdr);
+            // Find header row - check multiple conditions since Google Sheets may merge rows
+            let hdr = data.findIndex(r => r[0] === 'Full Name');
             
-            if (hdr >= 0) {
-                console.log('DEBUG: Header row content:', data[hdr]);
+            // If not found, try looking for 'First Name' in column 1 (more reliable)
+            if (hdr < 0) {
+                hdr = data.findIndex(r => r[1] === 'First Name');
             }
             
-            for (let i = (hdr >= 0 ? hdr : 2) + 1; i < data.length; i++) {
+            // If still not found, check if column 0 CONTAINS 'Full Name'
+            if (hdr < 0) {
+                hdr = data.findIndex(r => r[0] && r[0].toString().includes('Full Name'));
+            }
+            
+            console.log('Attendance header row found at:', hdr);
+            
+            for (let i = (hdr >= 0 ? hdr : 0) + 1; i < data.length; i++) {
                 const r = data[i];
                 if (!r[0]) continue;
                 let dateStr = r[6], meetingType = r[7], projectName = r[8], quarter = r[9];
-                
-                // Debug first 3 data rows
-                if (i < (hdr >= 0 ? hdr : 2) + 4) {
-                    console.log(`DEBUG: Row ${i} - Name: ${r[0]}, Date: ${dateStr}, Type: ${meetingType}, Quarter: ${quarter}`);
-                }
-                
                 let month = null, dateKey = null, d = null;
                 if (dateStr) {
                     d = new Date(dateStr);
@@ -610,15 +614,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     date: d
                 });
             }
-            console.log('DEBUG: Attendance loaded:', allAttendance.length, 'records');
-            console.log('DEBUG: Sample attendance:', allAttendance.slice(0, 5));
-            
-            // Count by type
-            const typeCount = {};
-            allAttendance.forEach(a => {
-                typeCount[a.type] = (typeCount[a.type] || 0) + 1;
-            });
-            console.log('DEBUG: Attendance by type:', typeCount);
+            console.log('Attendance loaded:', allAttendance.length, 'records');
         }
         
         // ============================================
@@ -736,9 +732,20 @@ const HTML_CONTENT = `<!DOCTYPE html>
         function processGuests(data) {
             guests = [];
             if (!data.length) return;
-            const hdr = data.findIndex(r => r[0] === 'First Name');
+            
+            // Find header row - check for 'First Name' in column 0 or 'Last Name' in column 1
+            let hdr = data.findIndex(r => r[0] === 'First Name');
+            if (hdr < 0) {
+                hdr = data.findIndex(r => r[1] === 'Last Name');
+            }
+            if (hdr < 0) {
+                hdr = data.findIndex(r => r[0] && r[0].toString().includes('First Name'));
+            }
+            
+            console.log('Guest tracking header row found at:', hdr);
+            
             const map = new Map();
-            for (let i = (hdr >= 0 ? hdr : 1) + 1; i < data.length; i++) {
+            for (let i = (hdr >= 0 ? hdr : 0) + 1; i < data.length; i++) {
                 const r = data[i];
                 if (!r[0] || r[0] === 'First Name' || r[0] === 'NaN') continue;
                 const name = \`\${(r[0]||'').trim()} \${(r[1]||'').trim()}\`.trim();
@@ -772,15 +779,43 @@ const HTML_CONTENT = `<!DOCTYPE html>
             members = [];
             if (!data.length) return;
             
+            // Find header row with multiple detection strategies
             let hdr = -1;
             for (let i = 0; i < Math.min(10, data.length); i++) {
-                if (data[i][0] === 'ID' || (data[i][1] && data[i][1].toString().includes('Full Name'))) {
+                // Check for 'ID' in column 0
+                if (data[i][0] === 'ID') {
+                    hdr = i;
+                    break;
+                }
+                // Check for 'Full Name' in column 1
+                if (data[i][1] && data[i][1].toString() === 'Full Name') {
+                    hdr = i;
+                    break;
+                }
+                // Check if column 1 CONTAINS 'Full Name' (for merged rows)
+                if (data[i][1] && data[i][1].toString().includes('Full Name')) {
+                    hdr = i;
+                    break;
+                }
+                // Check for 'First Name' in column 2 (another indicator)
+                if (data[i][2] && data[i][2].toString() === 'First Name') {
                     hdr = i;
                     break;
                 }
             }
             
-            if (hdr === -1) return;
+            console.log('Member registry header row found at:', hdr);
+            
+            // If still not found, try starting from row 0
+            if (hdr === -1) {
+                // Check if row 0 or 1 looks like data (not header)
+                if (data[0] && data[0][1] && !data[0][1].toString().includes('Full Name') && !data[0][1].toString().includes('ID')) {
+                    hdr = -1; // Will start from row 0
+                    console.log('Member registry: No header found, starting from row 0');
+                } else {
+                    return;
+                }
+            }
             
             for (let i = hdr + 1; i < data.length; i++) {
                 const r = data[i];
@@ -864,24 +899,12 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 // Process all attendance records for this member
                 const memberAtt = allAttendance.filter(a => a.name === m.fullName);
                 
-                // Debug for Adanna Edwards
-                if (m.fullName === 'Adanna Edwards') {
-                    console.log('DEBUG: Adanna attendance records:', memberAtt.length);
-                    console.log('DEBUG: Adanna records sample:', memberAtt.slice(0, 5).map(a => ({type: a.type, quarter: a.quarter, date: a.dateKey})));
-                }
-                
                 memberAtt.forEach(att => {
                     const q = att.quarter.toLowerCase();
                     const isQ1 = q === 'q1';
                     const isQ2 = q === 'q2';
                     const isQ3 = q === 'q3';
                     const isQ4 = q === 'q4';
-                    
-                    // Debug first few records for Adanna
-                    if (m.fullName === 'Adanna Edwards' && m.attendanceDetails.length < 3) {
-                        console.log(`DEBUG: Adanna record - type: '${att.type}', quarter: '${q}', isQ1: ${isQ1}, isQ2: ${isQ2}`);
-                        console.log(`DEBUG: Type comparison - Business: ${att.type === 'Business Meeting'}, Fellowship: ${att.type === 'Fellowship Meeting'}`);
-                    }
                     
                     // Build attendance detail record
                     const detail = {
@@ -917,11 +940,6 @@ const HTML_CONTENT = `<!DOCTYPE html>
                         if (isQ4) { m.projects.q4++; m.projects.h2++; m.projects.annual++; }
                     }
                 });
-                
-                // Debug final counts for Adanna
-                if (m.fullName === 'Adanna Edwards') {
-                    console.log('DEBUG: Adanna final counts - regular:', m.regularMeetings, 'committee:', m.committeeMeetings, 'projects:', m.projects);
-                }
                 
                 // Calculate total meetings attended
                 periods.forEach(p => {
