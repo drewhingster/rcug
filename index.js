@@ -1659,22 +1659,356 @@ const HTML_CONTENT = `<!DOCTYPE html>
         }
         
         // ============================================
-        // EXPORT FUNCTIONS (Simplified for brevity)
+        // EXPORT FUNCTIONS
         // ============================================
         async function exportMemberCard(name) {
-            alert('Export feature - Member: ' + name);
+            const m = members.find(mem => mem.fullName === name);
+            if (!m) return;
+            
+            const period = currentPeriod;
+            const eligible = m.eligibleMeetings[period] || 0;
+            const attended = m.totalMeetings[period] || 0;
+            const pct = eligible > 0 ? Math.round((attended / eligible) * 100) : 0;
+            const regularAtt = m.regularMeetings[period] || 0;
+            const committeeAtt = m.committeeMeetings[period] || 0;
+            const regularTotal = meetingTotals[period] || 0;
+            
+            // Calculate committee total for this member
+            let memberCommitteeTotal = 0;
+            const commTotals = committeeMeetingTotals[period] || {};
+            (m.committees || []).forEach(comm => {
+                memberCommitteeTotal += commTotals[comm] || 0;
+            });
+            
+            const projTotal = projectTotals[period] || 0;
+            const projAtt = m.projects[period] || 0;
+            const projPct = projTotal > 0 ? Math.round((projAtt / projTotal) * 100) : 0;
+            
+            const isGood = pct >= 60;
+            
+            // Create PDF using jsPDF
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'mm', 'a4');
+            
+            // Colors
+            const primaryColor = [155, 89, 182];
+            const goodColor = [39, 174, 96];
+            const badColor = [231, 76, 60];
+            const textColor = [44, 62, 80];
+            const lightGray = [189, 195, 199];
+            
+            // Header
+            doc.setFillColor(...primaryColor);
+            doc.rect(0, 0, 210, 40, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(24);
+            doc.setFont('helvetica', 'bold');
+            doc.text('RCUG Member Report', 105, 20, { align: 'center' });
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'normal');
+            doc.text(\`Generated: \${new Date().toLocaleDateString()} | Period: \${period.toUpperCase()}\`, 105, 32, { align: 'center' });
+            
+            // Member Name
+            doc.setTextColor(...textColor);
+            doc.setFontSize(20);
+            doc.setFont('helvetica', 'bold');
+            doc.text(m.fullName, 20, 55);
+            
+            // Status badge
+            doc.setFillColor(...(isGood ? goodColor : badColor));
+            doc.roundedRect(20, 60, 45, 8, 2, 2, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(10);
+            doc.text(isGood ? 'Good Standing' : 'Not Good Standing', 42.5, 65.5, { align: 'center' });
+            
+            // Member Info
+            doc.setTextColor(...textColor);
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            let y = 80;
+            doc.text(\`Category: \${m.category || 'Rotaractor'}\`, 20, y);
+            if (m.email) doc.text(\`Email: \${m.email}\`, 20, y + 6);
+            if (m.contact) doc.text(\`Contact: \${m.contact}\`, 20, y + 12);
+            if (m.committees && m.committees.length > 0) {
+                doc.text(\`Committees: \${m.committees.join(', ')}\`, 20, y + 18);
+            }
+            
+            // Good Standing Box
+            y = 110;
+            doc.setFillColor(...(isGood ? [39, 174, 96, 0.1] : [231, 76, 60, 0.1]));
+            doc.setDrawColor(...(isGood ? goodColor : badColor));
+            doc.roundedRect(20, y, 170, 30, 3, 3, 'FD');
+            
+            doc.setTextColor(...lightGray);
+            doc.setFontSize(9);
+            doc.text('GOOD STANDING CALCULATION (Regular + Committee Meetings)', 25, y + 8);
+            
+            doc.setTextColor(...(isGood ? goodColor : badColor));
+            doc.setFontSize(18);
+            doc.setFont('helvetica', 'bold');
+            doc.text(\`\${attended}/\${eligible} (\${pct}%)\`, 25, y + 20);
+            
+            doc.setTextColor(...lightGray);
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.text(\`Regular: \${regularAtt}/\${regularTotal} | Committee: \${committeeAtt}/\${memberCommitteeTotal}\`, 25, y + 27);
+            
+            // Attendance Details Table
+            y = 150;
+            doc.setTextColor(...textColor);
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Attendance Summary', 20, y);
+            
+            y += 10;
+            const tableData = [
+                ['Metric', 'Attended', 'Total', 'Percentage'],
+                ['Regular Meetings', regularAtt.toString(), regularTotal.toString(), \`\${regularTotal > 0 ? Math.round((regularAtt/regularTotal)*100) : 0}%\`],
+                ['Committee Meetings', committeeAtt.toString(), memberCommitteeTotal.toString(), \`\${memberCommitteeTotal > 0 ? Math.round((committeeAtt/memberCommitteeTotal)*100) : 0}%\`],
+                ['Combined (Good Standing)', attended.toString(), eligible.toString(), \`\${pct}%\`],
+                ['Projects', projAtt.toString(), projTotal.toString(), \`\${projPct}%\`]
+            ];
+            
+            if (m.isBoardMember && m.boardMeetings) {
+                let bp, btotal;
+                if (period === 'h1') { bp = (m.boardMeetings.q1 || 0) + (m.boardMeetings.q2 || 0); btotal = 6; }
+                else if (period === 'h2') { bp = (m.boardMeetings.q3 || 0) + (m.boardMeetings.q4 || 0); btotal = 6; }
+                else if (period === 'annual') { bp = m.boardMeetings.total || 0; btotal = 12; }
+                else { bp = m.boardMeetings[period] || 0; btotal = 3; }
+                tableData.push(['Board Meetings', bp.toString(), btotal.toString(), \`\${Math.round((bp/btotal)*100)}%\`]);
+            }
+            
+            // Draw table
+            doc.setFontSize(10);
+            const colWidths = [60, 35, 35, 40];
+            const rowHeight = 8;
+            
+            tableData.forEach((row, rowIndex) => {
+                let x = 20;
+                row.forEach((cell, colIndex) => {
+                    if (rowIndex === 0) {
+                        doc.setFillColor(...primaryColor);
+                        doc.rect(x, y, colWidths[colIndex], rowHeight, 'F');
+                        doc.setTextColor(255, 255, 255);
+                        doc.setFont('helvetica', 'bold');
+                    } else {
+                        doc.setFillColor(rowIndex % 2 === 0 ? 245 : 255, rowIndex % 2 === 0 ? 245 : 255, rowIndex % 2 === 0 ? 245 : 255);
+                        doc.rect(x, y, colWidths[colIndex], rowHeight, 'F');
+                        doc.setTextColor(...textColor);
+                        doc.setFont('helvetica', 'normal');
+                    }
+                    doc.text(cell, x + 3, y + 5.5);
+                    x += colWidths[colIndex];
+                });
+                y += rowHeight;
+            });
+            
+            // Footer
+            doc.setTextColor(...lightGray);
+            doc.setFontSize(8);
+            doc.text('Rotaract Club of University of Guyana | District 7030', 105, 285, { align: 'center' });
+            
+            // Save
+            doc.save(\`RCUG_\${m.fullName.replace(/\\s+/g, '_')}_Report_\${period.toUpperCase()}.pdf\`);
         }
         
         async function generateBirthdayPDF() {
-            alert('Birthday PDF export');
+            const month = document.getElementById('birthdayMonthFilter').value;
+            if (!month) { alert('Please select a month first'); return; }
+            
+            const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            const birthdays = members.filter(m => !m.isTerminated && getMonthFromDate(m.dateOfBirth) === parseInt(month));
+            
+            if (birthdays.length === 0) { alert('No birthdays this month'); return; }
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'mm', 'a4');
+            
+            // Header
+            doc.setFillColor(155, 89, 182);
+            doc.rect(0, 0, 210, 35, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(20);
+            doc.setFont('helvetica', 'bold');
+            doc.text(\`🎂 Birthday Report - \${monthNames[month]}\`, 105, 18, { align: 'center' });
+            doc.setFontSize(10);
+            doc.text(\`Rotaract Club of University of Guyana | Generated: \${new Date().toLocaleDateString()}\`, 105, 28, { align: 'center' });
+            
+            // Table
+            let y = 50;
+            const headers = ['Name', 'Birthday', 'Age'];
+            const colWidths = [80, 50, 40];
+            
+            doc.setFillColor(155, 89, 182);
+            let x = 20;
+            headers.forEach((h, i) => {
+                doc.rect(x, y, colWidths[i], 10, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'bold');
+                doc.text(h, x + 3, y + 7);
+                x += colWidths[i];
+            });
+            y += 10;
+            
+            birthdays.forEach((m, idx) => {
+                x = 20;
+                doc.setFillColor(idx % 2 === 0 ? 245 : 255, idx % 2 === 0 ? 245 : 255, idx % 2 === 0 ? 245 : 255);
+                colWidths.forEach(w => { doc.rect(x, y, w, 8, 'F'); x += w; });
+                
+                x = 20;
+                doc.setTextColor(44, 62, 80);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(10);
+                doc.text(m.fullName, x + 3, y + 5.5); x += colWidths[0];
+                doc.text(formatDate(m.dateOfBirth), x + 3, y + 5.5); x += colWidths[1];
+                doc.text(m.age ? m.age.toString() : 'N/A', x + 3, y + 5.5);
+                y += 8;
+            });
+            
+            doc.save(\`RCUG_Birthday_Report_\${monthNames[month]}_\${new Date().getFullYear()}.pdf\`);
         }
         
         async function generateAnniversaryPDF() {
-            alert('Anniversary PDF export');
+            const month = document.getElementById('anniversaryMonthFilter').value;
+            if (!month) { alert('Please select a month first'); return; }
+            
+            const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            const anniversaries = members.filter(m => !m.isTerminated && getMonthFromDate(m.dateInducted) === parseInt(month));
+            
+            if (anniversaries.length === 0) { alert('No anniversaries this month'); return; }
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'mm', 'a4');
+            
+            // Header
+            doc.setFillColor(155, 89, 182);
+            doc.rect(0, 0, 210, 35, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(20);
+            doc.setFont('helvetica', 'bold');
+            doc.text(\`🎉 Induction Anniversary - \${monthNames[month]}\`, 105, 18, { align: 'center' });
+            doc.setFontSize(10);
+            doc.text(\`Rotaract Club of University of Guyana | Generated: \${new Date().toLocaleDateString()}\`, 105, 28, { align: 'center' });
+            
+            // Table
+            let y = 50;
+            const headers = ['Name', 'Date Inducted', 'Years'];
+            const colWidths = [80, 50, 40];
+            
+            doc.setFillColor(155, 89, 182);
+            let x = 20;
+            headers.forEach((h, i) => {
+                doc.rect(x, y, colWidths[i], 10, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'bold');
+                doc.text(h, x + 3, y + 7);
+                x += colWidths[i];
+            });
+            y += 10;
+            
+            anniversaries.forEach((m, idx) => {
+                x = 20;
+                doc.setFillColor(idx % 2 === 0 ? 245 : 255, idx % 2 === 0 ? 245 : 255, idx % 2 === 0 ? 245 : 255);
+                colWidths.forEach(w => { doc.rect(x, y, w, 8, 'F'); x += w; });
+                
+                x = 20;
+                doc.setTextColor(44, 62, 80);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(10);
+                doc.text(m.fullName, x + 3, y + 5.5); x += colWidths[0];
+                doc.text(formatDate(m.dateInducted), x + 3, y + 5.5); x += colWidths[1];
+                const years = getYearsOfService(m.dateInducted);
+                doc.text(years !== null ? years.toString() : 'N/A', x + 3, y + 5.5);
+                y += 8;
+            });
+            
+            doc.save(\`RCUG_Anniversary_Report_\${monthNames[month]}_\${new Date().getFullYear()}.pdf\`);
         }
         
         async function generateAttendanceWarningPDF() {
-            alert('Attendance Warning PDF export');
+            const period = document.getElementById('quarterFilter').value;
+            const atRisk = members.filter(m => {
+                if (m.isTerminated || m.isOnLeave) return false;
+                const eligible = m.eligibleMeetings[period] || 1;
+                const attended = m.totalMeetings[period] || 0;
+                return (attended / eligible) * 100 < 60;
+            }).sort((a, b) => {
+                const pctA = (a.totalMeetings[period] / (a.eligibleMeetings[period] || 1)) * 100;
+                const pctB = (b.totalMeetings[period] / (b.eligibleMeetings[period] || 1)) * 100;
+                return pctA - pctB;
+            });
+            
+            if (atRisk.length === 0) { alert('All members are in good standing!'); return; }
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('l', 'mm', 'a4'); // Landscape
+            
+            // Header
+            doc.setFillColor(231, 76, 60);
+            doc.rect(0, 0, 297, 30, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(18);
+            doc.setFont('helvetica', 'bold');
+            doc.text(\`⚠️ Attendance Warning Report - \${period.toUpperCase()}\`, 148.5, 15, { align: 'center' });
+            doc.setFontSize(10);
+            doc.text(\`RCUG | Members below 60% attendance | Generated: \${new Date().toLocaleDateString()}\`, 148.5, 24, { align: 'center' });
+            
+            // Table
+            let y = 40;
+            const headers = ['Name', 'Regular', 'Committee', 'Total', 'Eligible', 'Attendance %', 'Email'];
+            const colWidths = [50, 30, 30, 25, 25, 35, 62];
+            
+            doc.setFillColor(231, 76, 60);
+            let x = 20;
+            headers.forEach((h, i) => {
+                doc.rect(x, y, colWidths[i], 10, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'bold');
+                doc.text(h, x + 2, y + 7);
+                x += colWidths[i];
+            });
+            y += 10;
+            
+            atRisk.forEach((m, idx) => {
+                const eligible = m.eligibleMeetings[period] || 1;
+                const attended = m.totalMeetings[period] || 0;
+                const pct = Math.round((attended / eligible) * 100);
+                
+                x = 20;
+                doc.setFillColor(idx % 2 === 0 ? 255 : 245, idx % 2 === 0 ? 240 : 235, idx % 2 === 0 ? 240 : 235);
+                colWidths.forEach(w => { doc.rect(x, y, w, 8, 'F'); x += w; });
+                
+                x = 20;
+                doc.setTextColor(44, 62, 80);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9);
+                
+                const rowData = [
+                    m.fullName,
+                    \`\${m.regularMeetings[period]}/\${meetingTotals[period]}\`,
+                    \`\${m.committeeMeetings[period]}/\${eligible - meetingTotals[period]}\`,
+                    attended.toString(),
+                    eligible.toString(),
+                    \`\${pct}%\`,
+                    m.email || 'N/A'
+                ];
+                
+                rowData.forEach((cell, i) => {
+                    doc.text(cell.substring(0, 25), x + 2, y + 5.5);
+                    x += colWidths[i];
+                });
+                y += 8;
+                
+                if (y > 180) {
+                    doc.addPage();
+                    y = 20;
+                }
+            });
+            
+            doc.save(\`RCUG_Attendance_Warning_\${period.toUpperCase()}_\${new Date().getFullYear()}.pdf\`);
         }
         
         async function generateAttendanceWarningCSV() {
@@ -1703,7 +2037,76 @@ const HTML_CONTENT = `<!DOCTYPE html>
         }
         
         async function generateGuestEligibilityPDF() {
-            alert('Guest Eligibility PDF export');
+            const eligibleGuests = guests.filter(isEligible);
+            
+            if (eligibleGuests.length === 0) { 
+                alert('No guests currently eligible for membership'); 
+                return; 
+            }
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('l', 'mm', 'a4'); // Landscape
+            
+            // Header
+            doc.setFillColor(155, 89, 182);
+            doc.rect(0, 0, 297, 30, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(18);
+            doc.setFont('helvetica', 'bold');
+            doc.text('⭐ Guest Eligibility Report', 148.5, 15, { align: 'center' });
+            doc.setFontSize(10);
+            doc.text(\`RCUG | Guests ready for membership proposal | Generated: \${new Date().toLocaleDateString()}\`, 148.5, 24, { align: 'center' });
+            
+            // Table
+            let y = 40;
+            const headers = ['Name', 'Meetings', 'Projects', 'Info Session', 'Committee Mtg', 'UG Status'];
+            const colWidths = [60, 40, 40, 40, 40, 37];
+            
+            doc.setFillColor(155, 89, 182);
+            let x = 20;
+            headers.forEach((h, i) => {
+                doc.rect(x, y, colWidths[i], 10, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'bold');
+                doc.text(h, x + 2, y + 7);
+                x += colWidths[i];
+            });
+            y += 10;
+            
+            eligibleGuests.forEach((g, idx) => {
+                x = 20;
+                doc.setFillColor(idx % 2 === 0 ? 245 : 255, idx % 2 === 0 ? 250 : 255, idx % 2 === 0 ? 245 : 255);
+                colWidths.forEach(w => { doc.rect(x, y, w, 8, 'F'); x += w; });
+                
+                x = 20;
+                doc.setTextColor(44, 62, 80);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9);
+                
+                doc.text(g.fullName, x + 2, y + 5.5); x += colWidths[0];
+                doc.text(\`\${g.meetings} (\${Math.round(g.meetPct)}%)\`, x + 2, y + 5.5); x += colWidths[1];
+                doc.text(\`\${g.projects} (\${Math.round(g.projPct)}%)\`, x + 2, y + 5.5); x += colWidths[2];
+                doc.setTextColor(39, 174, 96);
+                doc.text('Yes', x + 2, y + 5.5); x += colWidths[3];
+                doc.text('Yes', x + 2, y + 5.5); x += colWidths[4];
+                doc.text('Yes', x + 2, y + 5.5);
+                doc.setTextColor(44, 62, 80);
+                
+                y += 8;
+                
+                if (y > 180) {
+                    doc.addPage();
+                    y = 20;
+                }
+            });
+            
+            // Footer note
+            doc.setFontSize(8);
+            doc.setTextColor(100, 100, 100);
+            doc.text('All listed guests have met the membership requirements per RCUG Bylaws and are ready for proposal.', 148.5, 195, { align: 'center' });
+            
+            doc.save(\`RCUG_Guest_Eligibility_\${new Date().getFullYear()}.pdf\`);
         }
         
         async function generateGuestEligibilityCSV() {
