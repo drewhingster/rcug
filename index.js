@@ -557,12 +557,32 @@ const HTML_CONTENT = `<!DOCTYPE html>
         // ============================================
         function processAttendance(data) {
             allAttendance = [];
-            if (!data.length) return;
+            if (!data.length) {
+                console.log('DEBUG: No attendance data received');
+                return;
+            }
+            console.log('DEBUG: Attendance data rows:', data.length);
+            console.log('DEBUG: First row:', data[0]);
+            console.log('DEBUG: Second row:', data[1]);
+            console.log('DEBUG: Third row:', data[2]);
+            
             const hdr = data.findIndex(r => r[0] === 'Full Name');
+            console.log('DEBUG: Header row index:', hdr);
+            
+            if (hdr >= 0) {
+                console.log('DEBUG: Header row content:', data[hdr]);
+            }
+            
             for (let i = (hdr >= 0 ? hdr : 2) + 1; i < data.length; i++) {
                 const r = data[i];
                 if (!r[0]) continue;
                 let dateStr = r[6], meetingType = r[7], projectName = r[8], quarter = r[9];
+                
+                // Debug first 3 data rows
+                if (i < (hdr >= 0 ? hdr : 2) + 4) {
+                    console.log(`DEBUG: Row ${i} - Name: ${r[0]}, Date: ${dateStr}, Type: ${meetingType}, Quarter: ${quarter}`);
+                }
+                
                 let month = null, dateKey = null, d = null;
                 if (dateStr) {
                     d = new Date(dateStr);
@@ -590,7 +610,15 @@ const HTML_CONTENT = `<!DOCTYPE html>
                     date: d
                 });
             }
-            console.log('Attendance loaded:', allAttendance.length, 'records');
+            console.log('DEBUG: Attendance loaded:', allAttendance.length, 'records');
+            console.log('DEBUG: Sample attendance:', allAttendance.slice(0, 5));
+            
+            // Count by type
+            const typeCount = {};
+            allAttendance.forEach(a => {
+                typeCount[a.type] = (typeCount[a.type] || 0) + 1;
+            });
+            console.log('DEBUG: Attendance by type:', typeCount);
         }
         
         // ============================================
@@ -836,12 +864,24 @@ const HTML_CONTENT = `<!DOCTYPE html>
                 // Process all attendance records for this member
                 const memberAtt = allAttendance.filter(a => a.name === m.fullName);
                 
+                // Debug for Adanna Edwards
+                if (m.fullName === 'Adanna Edwards') {
+                    console.log('DEBUG: Adanna attendance records:', memberAtt.length);
+                    console.log('DEBUG: Adanna records sample:', memberAtt.slice(0, 5).map(a => ({type: a.type, quarter: a.quarter, date: a.dateKey})));
+                }
+                
                 memberAtt.forEach(att => {
                     const q = att.quarter.toLowerCase();
                     const isQ1 = q === 'q1';
                     const isQ2 = q === 'q2';
                     const isQ3 = q === 'q3';
                     const isQ4 = q === 'q4';
+                    
+                    // Debug first few records for Adanna
+                    if (m.fullName === 'Adanna Edwards' && m.attendanceDetails.length < 3) {
+                        console.log(`DEBUG: Adanna record - type: '${att.type}', quarter: '${q}', isQ1: ${isQ1}, isQ2: ${isQ2}`);
+                        console.log(`DEBUG: Type comparison - Business: ${att.type === 'Business Meeting'}, Fellowship: ${att.type === 'Fellowship Meeting'}`);
+                    }
                     
                     // Build attendance detail record
                     const detail = {
@@ -877,6 +917,11 @@ const HTML_CONTENT = `<!DOCTYPE html>
                         if (isQ4) { m.projects.q4++; m.projects.h2++; m.projects.annual++; }
                     }
                 });
+                
+                // Debug final counts for Adanna
+                if (m.fullName === 'Adanna Edwards') {
+                    console.log('DEBUG: Adanna final counts - regular:', m.regularMeetings, 'committee:', m.committeeMeetings, 'projects:', m.projects);
+                }
                 
                 // Calculate total meetings attended
                 periods.forEach(p => {
